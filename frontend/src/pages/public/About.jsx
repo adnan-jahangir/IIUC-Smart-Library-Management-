@@ -89,7 +89,7 @@ const About = () => {
                             <Globe className="w-8 h-8" />
                         </div>
                         <h3 className="text-xl font-bold mb-3">AI Powered</h3>
-                        <p className="text-slate-500">Powered by Gemini for advanced recommendations and academic summarizations.</p>
+                        <p className="text-slate-500">Powered by our library assistant for advanced recommendations and academic summarizations.</p>
                     </div>
                 </div>
             </section>

@@ -32,7 +32,6 @@ import StudentBorrowRequests from './pages/student/StudentBorrowRequests';
 import StudentReservations from './pages/student/StudentReservations';
 import StudentFines from './pages/student/StudentFines';
 import StudentNotifications from './pages/student/StudentNotifications';
-import StudentAIAssistant from './pages/student/StudentAIAssistant';
 import StudentProfile from './pages/student/StudentProfile';
 
 // === Teacher Pages ===
@@ -101,7 +100,6 @@ function App() {
             <Route path="reservations" element={<StudentReservations />} />
             <Route path="fines" element={<StudentFines />} />
             <Route path="notifications" element={<StudentNotifications />} />
-            <Route path="ai-assistant" element={<StudentAIAssistant />} />
             <Route path="profile" element={<StudentProfile />} />
           </Route>
         </Route>

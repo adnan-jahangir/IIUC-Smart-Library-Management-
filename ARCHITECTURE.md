@@ -1,7 +1,7 @@
 # IIUC Smart Library Management System - Architecture & Engineering Plan
 
 ## 1. Project Architecture Overview
-The system follows a modern decoupled architecture using the **MERN Stack** (MongoDB, Express.js, React.js, Node.js) enriched with Real-Time capabilities (Socket.IO) and Artificial Intelligence (Google Gemini / OpenAI).
+The system follows a modern decoupled architecture using the **MERN Stack** (MongoDB, Express.js, React.js, Node.js) enriched with Real-Time capabilities (Socket.IO) and Artificial Intelligence (external AI providers).
 
 ### High-Level Architecture
 - **Client Tier**: A React-based Single Page Application (SPA), styled with Tailwind CSS, utilizing Zustand (or Context) for global state management.
@@ -9,7 +9,7 @@ The system follows a modern decoupled architecture using the **MERN Stack** (Mon
 - **Data Tier**: MongoDB highly scalable NoSQL data storage (accessed via Mongoose).
 - **Background Intelligence**: 
   - `node-cron` for scheduled tasks (fine calculation, overdue emails).
-  - External AI API integration for intelligent book recommendations and summaries.
+- External AI API integration for intelligent book recommendations and summaries.
   - `Socket.IO` for real-time dashboards, availability updates, and queue notifications.
 
 ## 2. Feature Breakdown by Role
@@ -176,7 +176,7 @@ The system follows a modern decoupled architecture using the **MERN Stack** (Mon
 - Frontend: Student/Teacher action panels, Librarian Approval queues.
 
 ### PHASE 5: Intelligence & Automations
-- Integrate Gemini AI for AI Assistant features.
+- Integrate the AI assistant for recommendations, summaries, and study help.
 - Set up `node-cron` to automatically calculate daily fines (5 BDT/day).
 - Add `Nodemailer` for due date warnings.
 

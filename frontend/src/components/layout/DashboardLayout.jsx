@@ -21,7 +21,6 @@ const SIDEBAR_ITEMS = {
     { icon: <History size={20} />, label: 'Borrowed Books', path: '/student/borrows' },
     { icon: <BookmarkPlus size={20} />, label: 'Reservations', path: '/student/reservations' },
     { icon: <CreditCard size={20} />, label: 'Fines', path: '/student/fines' },
-    { icon: <Brain size={20} />, label: 'AI Assistant', path: '/student/ai-assistant' },
     { icon: <Bell size={20} />, label: 'Notifications', path: '/student/notifications' },
     { icon: <Settings size={20} />, label: 'Profile Settings', path: '/student/profile' },
   ]

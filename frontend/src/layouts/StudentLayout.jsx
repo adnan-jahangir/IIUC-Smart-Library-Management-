@@ -33,7 +33,6 @@ const StudentLayout = () => {
     { name: 'My Borrowed', path: '/student/my-books', icon: <BookOpen className="w-5 h-5" /> },
     { name: 'Reservations', path: '/student/reservations', icon: <Clock className="w-5 h-5" /> },
     { name: 'Fines', path: '/student/fines', icon: <AlertTriangle className="w-5 h-5" /> },
-    { name: 'AI Assistant', path: '/student/ai-assistant', icon: <MessageSquare className="w-5 h-5" /> },
   ];
 
   const sidebarContent = (

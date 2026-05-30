@@ -51,12 +51,16 @@ const Catalog = () => {
   // Real Backend Data State
   const [books, setBooks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
 
   useEffect(() => {
     fetch('http://localhost:5000/api/books')
       .then(res => res.json())
       .then(data => {
         const updatedBooks = data.map(book => {
+          // normalize department/category fields for consistent display and filtering
+          const dept = book.department ?? book.departmentName ?? book.category ?? 'General';
+          const category = book.category ?? book.subject ?? dept;
           return {
             ...book,
             // Use nullish checks so 0 available is preserved and does not fall back to legacy `copies`
@@ -64,22 +68,27 @@ const Catalog = () => {
             total: book.totalCopies ?? book.copies ?? 0,
             id: book.customId || book._id,
             image: book.image,
+            department: dept,
+            category,
             fallback: `https://via.placeholder.com/300x400/1a1a2e/ffffff?text=${encodeURIComponent(book.title)}`
           };
         });
         setBooks(updatedBooks);
         setIsLoading(false);
+        setFetchError(null);
       })
       .catch(err => {
         console.error('Error fetching books:', err);
         setIsLoading(false);
+        setFetchError(err.message || 'Failed to fetch books from the backend.');
       });
   }, []);
 
   // Filter logic
   const filteredBooks = books.filter(book => {
-    const matchesSearch = book.title.toLowerCase().includes(searchTerm.toLowerCase()) || book.author.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesDept = selectedDept === 'All' || book.department === selectedDept;
+    const q = searchTerm.toLowerCase();
+    const matchesSearch = book.title?.toLowerCase().includes(q) || book.author?.toLowerCase().includes(q) || (book.category || '').toLowerCase().includes(q);
+    const matchesDept = selectedDept === 'All' || (book.department === selectedDept) || (book.category === selectedDept);
     return matchesSearch && matchesDept;
   });
 
@@ -153,6 +162,12 @@ const Catalog = () => {
                  <div className="flex justify-center items-center py-20 text-emerald-600">
                     <Loader2 className="w-10 h-10 animate-spin" />
                  </div>
+             ) : fetchError ? (
+                <div className="text-center py-12 bg-rose-50 border border-rose-100 rounded-2xl">
+                  <h3 className="text-lg font-bold text-rose-600 mb-2">Could not load catalog</h3>
+                  <p className="text-sm text-rose-500 mb-4">{fetchError}</p>
+                  <p className="text-sm text-slate-500">Make sure the backend is running and reachable at <strong>http://localhost:5000</strong>.</p>
+                </div>
              ) : filteredBooks.length > 0 ? (
                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                    {filteredBooks.map(book => (

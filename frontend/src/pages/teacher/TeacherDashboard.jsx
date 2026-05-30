@@ -3,6 +3,7 @@ import { BookOpen, FileText, CheckCircle2, Clock, BrainCircuit, ArrowRight, Aler
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuthStore } from '../../store/useAuthStore';
+import LibraryChatWidget from '../../components/LibraryChatWidget';
 
 const TeacherDashboard = () => {
   const { user } = useAuthStore();
@@ -48,6 +49,20 @@ const TeacherDashboard = () => {
   }, [requests]);
 
   const recentRequests = requests.slice(0, 4);
+
+  /**
+   * Converts the teacher's request list into book objects for the chat assistant.
+   * Returns an array of book-like objects that the assistant can reference.
+   */
+  const chatBooks = requests
+    .map((request) => request?.book)
+    .filter(Boolean)
+    .map((book) => ({
+      title: book.title || 'Untitled',
+      author: book.author || 'Unknown author',
+      subject: book.subject || book.department || 'General',
+      available: Boolean(book.available),
+    }));
 
   const statusTone = (status) => {
     if (status === 'Approved') return 'bg-emerald-50 text-emerald-700';
@@ -141,10 +156,10 @@ const TeacherDashboard = () => {
           <div className="relative z-10 h-full flex flex-col">
             <div className="flex items-center gap-2 mb-3 sm:mb-4 min-w-0">
               <BrainCircuit className="text-indigo-400" />
-              <h3 className="text-base sm:text-lg font-bold break-words">Research & Syllabus AI</h3>
+              <h3 className="text-base sm:text-lg font-bold break-words">Research & Syllabus Assistant</h3>
             </div>
             <p className="text-slate-300 text-xs sm:text-sm mb-4 sm:mb-6 flex-1 leading-relaxed">
-              Let Gemini analyze current curriculum trends and suggest current editions, course references, and research material.
+              Let the library assistant analyze current curriculum trends and suggest current editions, course references, and research material.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0">
               <Link to="/teacher/search" className="w-full inline-flex items-center justify-center py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-semibold transition-colors text-sm sm:text-base">
@@ -154,7 +169,13 @@ const TeacherDashboard = () => {
                 Open AI Assistant
               </Link>
             </div>
+            <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 sm:p-4">
+              <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
+                Use the chat assistant here for fast book guidance, synopsis help, and study roadmap prompts.
+              </p>
+            </div>
           </div>
+          <LibraryChatWidget optionalBooks={chatBooks} />
         </div>
       </div>
     </div>

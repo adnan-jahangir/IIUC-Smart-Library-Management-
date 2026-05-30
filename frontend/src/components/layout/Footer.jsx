@@ -20,7 +20,6 @@ const Footer = () => {
             <h3 className="font-semibold mb-4 text-white">Quick Links</h3>
             <ul className="space-y-2 text-sm text-slate-400">
               <li><a href="#" className="hover:text-primary-400 transition-colors">Browse Catalog</a></li>
-              <li><a href="#" className="hover:text-primary-400 transition-colors">AI Assistant</a></li>
               <li><a href="#" className="hover:text-primary-400 transition-colors">Departments</a></li>
               <li><a href="#" className="hover:text-primary-400 transition-colors">Featured Books</a></li>
             </ul>
