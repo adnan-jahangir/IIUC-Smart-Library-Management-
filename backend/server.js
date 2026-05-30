@@ -33,8 +33,6 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-// respond to preflight requests
-app.options('*', cors(corsOptions));
 app.use(express.json());
 
 // Request logger
