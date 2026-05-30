@@ -16,17 +16,8 @@ const allowedOrigins = rawFrontendUrls
   .filter(Boolean);
 
 const corsOptions = {
-  origin: function (origin, callback) {
-    // allow non-browser tools (curl, server-to-server) with no origin
-    if (!origin) return callback(null, true);
-
-    // if no FRONTEND_URLS provided (e.g. local dev), allow all origins
-    if (allowedOrigins.length === 0) return callback(null, true);
-
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-
-    return callback(new Error('CORS policy: Origin not allowed'), false);
-  },
+  // Temporarily allow any origin for debugging mobile network issues.
+  origin: '*',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
