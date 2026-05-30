@@ -8,7 +8,33 @@ const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/library-system';
 
 // Middleware
-app.use(cors());
+// CORS: allow only configured frontend origins (FRONTEND_URLS env var)
+const rawFrontendUrls = process.env.FRONTEND_URLS || '';
+const allowedOrigins = rawFrontendUrls
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // allow non-browser tools (curl, server-to-server) with no origin
+    if (!origin) return callback(null, true);
+
+    // if no FRONTEND_URLS provided (e.g. local dev), allow all origins
+    if (allowedOrigins.length === 0) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+
+    return callback(new Error('CORS policy: Origin not allowed'), false);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+};
+
+app.use(cors(corsOptions));
+// respond to preflight requests
+app.options('*', cors(corsOptions));
 app.use(express.json());
 
 // Request logger
