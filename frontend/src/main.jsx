@@ -4,8 +4,8 @@ import './index.css'
 import App from './App.jsx'
 import axios from 'axios'
 
-// Configure API base from Vite env or default to localhost during development
-const API_BASE = 'https://iiuc-smart-library-management.onrender.com';
+// Configure API base from Vite env or fallback to Render/localhost
+const API_BASE = import.meta.env.VITE_API_URL || 'https://iiuc-smart-library-management.onrender.com';
 axios.defaults.baseURL = API_BASE;
 
 // Rewrite any hardcoded absolute backend URLs at runtime so existing code works
