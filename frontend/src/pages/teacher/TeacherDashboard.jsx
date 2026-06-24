@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuthStore } from '../../store/useAuthStore';
 import LibraryChatWidget from '../../components/LibraryChatWidget';
+import TeacherAITools from '../../components/ai/TeacherAITools';
 
 const TeacherDashboard = () => {
   const { user } = useAuthStore();
@@ -178,6 +179,7 @@ const TeacherDashboard = () => {
           <LibraryChatWidget optionalBooks={chatBooks} />
         </div>
       </div>
+      <TeacherAITools />
     </div>
   );
 };

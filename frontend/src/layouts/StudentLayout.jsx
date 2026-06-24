@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
-import { BookOpen, User, Bell, Search, Library, Clock, AlertTriangle, Settings, MessageSquare, Menu, X, ArrowLeft } from 'lucide-react';
+import { BookOpen, User, Bell, Search, Library, Clock, AlertTriangle, Settings, MessageSquare, Menu, X, ArrowLeft, Sparkles, FileText, Map, Code } from 'lucide-react';
+import AiChatWidget from '../components/ai/AiChatWidget';
+import NotificationBell from '../components/ai/NotificationBell';
 
 const StudentLayout = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -33,7 +35,9 @@ const StudentLayout = () => {
     { name: 'My Borrowed', path: '/student/my-books', icon: <BookOpen className="w-5 h-5" /> },
     { name: 'Reservations', path: '/student/reservations', icon: <Clock className="w-5 h-5" /> },
     { name: 'Fines', path: '/student/fines', icon: <AlertTriangle className="w-5 h-5" /> },
+    { name: 'AI Assistant', path: '/student/ai-assistant', icon: <Sparkles className="w-5 h-5" /> },
   ];
+
 
   const sidebarContent = (
     <>
@@ -115,10 +119,7 @@ const StudentLayout = () => {
                 </h1>
               </div>
               <div className="flex items-center gap-4">
-                <button className="p-2 text-slate-400 hover:text-emerald-600 bg-slate-50 hover:bg-emerald-50 rounded-full transition-colors relative">
-                  <Bell className="w-5 h-5" />
-                  <span className="absolute top-1 right-2 w-2 h-2 bg-rose-500 rounded-full"></span>
-                </button>
+                <NotificationBell />
                 <div className="flex items-center gap-3 border-l border-slate-200 pl-4">
                   <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs">
                     {user?.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'S'}
@@ -156,6 +157,9 @@ const StudentLayout = () => {
         <div className="p-4 sm:p-6 md:p-8 flex-1 w-full max-w-7xl mx-auto">
           <Outlet />
         </div>
+
+        {/* Floating AI Chat Widget */}
+        <AiChatWidget />
       </main>
     </div>
   );

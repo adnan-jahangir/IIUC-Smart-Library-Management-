@@ -41,9 +41,14 @@ import TeacherMyBooks from './pages/teacher/TeacherMyBooks';
 import TeacherBorrowRequests from './pages/teacher/TeacherBorrowRequests';
 import TeacherReservations from './pages/teacher/TeacherReservations';
 import TeacherAcademicRequests from './pages/teacher/TeacherAcademicRequests';
-import TeacherAIAssistant from './pages/teacher/TeacherAIAssistant';
+
 import TeacherNotifications from './pages/teacher/TeacherNotifications';
 import TeacherProfile from './pages/teacher/TeacherProfile';
+import AIAssistantDocumentTab from './pages/shared/AIAssistantDocumentTab';
+import AIAssistantRoadmapTab from './pages/shared/AIAssistantRoadmapTab';
+import AIAssistantContainer from './pages/shared/AIAssistantContainer';
+import AIAssistantChatTab from './pages/shared/AIAssistantChatTab';
+import AIAssistantRecommendationsTab from './pages/shared/AIAssistantRecommendationsTab';
 
 // === Librarian Pages ===
 import LibrarianDashboard from './pages/librarian/LibrarianDashboard';
@@ -99,6 +104,13 @@ function App() {
             <Route path="borrow-requests" element={<StudentBorrowRequests />} />
             <Route path="reservations" element={<StudentReservations />} />
             <Route path="fines" element={<StudentFines />} />
+            <Route path="ai-assistant" element={<AIAssistantContainer />}>
+              <Route index element={<Navigate to="chat" replace />} />
+              <Route path="chat" element={<AIAssistantChatTab />} />
+              <Route path="docs" element={<AIAssistantDocumentTab />} />
+              <Route path="roadmap" element={<AIAssistantRoadmapTab />} />
+              <Route path="recommendations" element={<AIAssistantRecommendationsTab />} />
+            </Route>
             <Route path="notifications" element={<StudentNotifications />} />
             <Route path="profile" element={<StudentProfile />} />
           </Route>
@@ -114,7 +126,13 @@ function App() {
             <Route path="borrow-requests" element={<TeacherBorrowRequests />} />
             <Route path="reservations" element={<TeacherReservations />} />
             <Route path="academic-requests" element={<TeacherAcademicRequests />} />
-            <Route path="ai-assistant" element={<TeacherAIAssistant />} />
+            <Route path="ai-assistant" element={<AIAssistantContainer />}>
+              <Route index element={<Navigate to="chat" replace />} />
+              <Route path="chat" element={<AIAssistantChatTab />} />
+              <Route path="docs" element={<AIAssistantDocumentTab />} />
+              <Route path="roadmap" element={<AIAssistantRoadmapTab />} />
+              <Route path="recommendations" element={<AIAssistantRecommendationsTab />} />
+            </Route>
             <Route path="notifications" element={<TeacherNotifications />} />
             <Route path="profile" element={<TeacherProfile />} />
           </Route>

@@ -3,6 +3,8 @@ import { BookOpen, AlertCircle, Clock, BookMarked, BrainCircuit, CheckCircle2, S
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuthStore } from '../../store/useAuthStore';
+import BookRecommendations from '../../components/ai/BookRecommendations';
+import FineSummaryCard from '../../components/ai/FineSummaryCard';
 
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { resolveBookCover, getBookCoverFallback } from '../../utils/bookCover';
@@ -399,6 +401,8 @@ const StudentDashboard = () => {
         />
       </div>
 
+      <FineSummaryCard />
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         
         {/* Main Chart / AI Section */}
@@ -425,7 +429,7 @@ const StudentDashboard = () => {
               </ResponsiveContainer>
             </div>
           </div>
-              {/* AI Assistant removed from dashboard */}
+          <BookRecommendations />
 
         </div>
 

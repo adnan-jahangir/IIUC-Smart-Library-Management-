@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, DollarSign, Calendar, AlertTriangle, CheckCircle, Bell } from 'lucide-react';
+import { CreditCard, DollarSign, Calendar, AlertTriangle, CheckCircle, Bell, HelpCircle } from 'lucide-react';
 import axios from 'axios';
 import { useAuthStore } from '../../store/useAuthStore';
 import toast from 'react-hot-toast';
+import SystemLogicFlowchart from '../../components/ai/SystemLogicFlowchart';
 
 const StudentFines = () => {
   const { user } = useAuthStore();
@@ -10,6 +11,7 @@ const StudentFines = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [calcDays, setCalcDays] = useState(10);
   const [bookType, setBookType] = useState(5);
+  const [showLogicFlowchart, setShowLogicFlowchart] = useState(false);
 
   useEffect(() => {
     const fetchFines = async () => {
@@ -70,6 +72,12 @@ const StudentFines = () => {
           <div>
             <p className="text-slate-500 text-sm font-medium">Fine Rate Rule</p>
             <h3 className="text-sm font-bold text-slate-700 mt-1">৳৫/day (General Books)<br />৳১০/day (Ref Books)</h3>
+            <button 
+              onClick={() => setShowLogicFlowchart(true)} 
+              className="mt-2 text-xs text-indigo-600 font-bold flex items-center gap-1 hover:text-indigo-800"
+            >
+              <HelpCircle className="w-3 h-3"/> How are fines calculated?
+            </button>
           </div>
           <Calendar className="w-8 h-8 text-slate-400" />
         </div>
@@ -155,6 +163,13 @@ const StudentFines = () => {
            </div>
         </div>
       </div>
+      
+      {showLogicFlowchart && (
+        <SystemLogicFlowchart 
+          logicType="fine-calculation" 
+          onClose={() => setShowLogicFlowchart(false)} 
+        />
+      )}
     </div>
   );
 };
