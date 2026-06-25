@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { BookOpen, User, Bell, Search, Library, Clock, AlertTriangle, Settings, MessageSquare, Menu, X, ArrowLeft, Sparkles, FileText, Map, Code } from 'lucide-react';
-import AiChatWidget from '../components/ai/AiChatWidget';
 import NotificationBell from '../components/ai/NotificationBell';
 
 const StudentLayout = () => {
@@ -158,8 +157,6 @@ const StudentLayout = () => {
           <Outlet />
         </div>
 
-        {/* Floating AI Chat Widget */}
-        <AiChatWidget />
       </main>
     </div>
   );

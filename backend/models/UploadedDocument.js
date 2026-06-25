@@ -26,7 +26,12 @@ const uploadedDocumentSchema = new mongoose.Schema(
     isScanned: {
       type: Boolean,
       default: false,
-    }
+    },
+    embeddingStatus: {
+      type: String,
+      enum: ['pending', 'ready', 'failed', 'skipped'],
+      default: 'skipped',
+    },
   },
   { timestamps: true }
 );

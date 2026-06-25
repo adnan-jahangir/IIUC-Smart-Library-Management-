@@ -6,7 +6,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { FaPlus, FaHistory, FaArrowLeft, FaSpinner } from 'react-icons/fa';
 
 export default function AIAssistantRoadmapTab() {
-  const { token } = useAuthStore();
+  const { user } = useAuthStore();
   
   // Modes: 'generate', 'view', 'history'
   const [mode, setMode] = useState('generate');
@@ -25,7 +25,7 @@ export default function AIAssistantRoadmapTab() {
   const fetchHistory = async () => {
     setLoadingHistory(true);
     try {
-      const data = await listRoadmapHistory(token);
+      const data = await listRoadmapHistory(user?.token);
       setHistory(data || []);
     } catch (err) {
       console.error('Failed to load roadmap history:', err);
@@ -42,7 +42,7 @@ export default function AIAssistantRoadmapTab() {
   const loadRoadmapDetails = async (id) => {
     setLoadingDetails(true);
     try {
-      const data = await getRoadmapById(token, id);
+      const data = await getRoadmapById(user?.token, id);
       setCurrentRoadmap(data);
       setMode('view');
     } catch (err) {

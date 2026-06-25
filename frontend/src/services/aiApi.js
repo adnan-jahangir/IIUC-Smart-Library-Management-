@@ -139,6 +139,18 @@ export async function deleteChatSession(token, sessionId) {
   );
 }
 
+/**
+ * Rename a chat session.
+ */
+export async function renameChatSession(token, sessionId, title) {
+  const res = await axios.patch(
+    `${API_BASE}/api/ai/chat/sessions/${sessionId}/title`,
+    { title },
+    authHeaders(token)
+  );
+  return res.data;
+}
+
 // ===========================================================================
 // Recommendations API
 // ===========================================================================
@@ -262,6 +274,21 @@ export async function deleteUploadedDocument(token, documentId) {
   );
 }
 
+/**
+ * Ask a question across ALL of the user's uploaded documents (multi-doc RAG).
+ * @param {string} token - JWT token
+ * @param {string} question - Question text
+ * @returns {{ answer: string, sourcesUsed: Array<{documentId: string, filename: string}> }}
+ */
+export async function askAllDocuments(token, question) {
+  const res = await axios.post(
+    `${API_BASE}/api/ai/document/ask-all`,
+    { question },
+    authHeaders(token)
+  );
+  return res.data;
+}
+
 // ===========================================================================
 // Roadmap Generator API
 // ===========================================================================
@@ -368,5 +395,10 @@ export async function generateSyllabusQuiz(token, params) {
 
 export async function getClassInsights(token) {
   const res = await axios.get(`${API_BASE}/api/ai/teacher/class-insights`, authHeaders(token));
+  return res.data;
+}
+
+export async function getBookInsight(token, bookId) {
+  const res = await axios.get(`${API_BASE}/api/ai/book-insight/${bookId}`, authHeaders(token));
   return res.data;
 }

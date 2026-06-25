@@ -4,7 +4,7 @@ import { generateRoadmap } from '../../services/aiApi';
 import { useAuthStore } from '../../store/useAuthStore';
 
 export default function RoadmapGenerator({ onRoadmapGenerated }) {
-  const { token } = useAuthStore();
+  const { user } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -31,7 +31,7 @@ export default function RoadmapGenerator({ onRoadmapGenerated }) {
     setLoading(true);
     
     try {
-      const response = await generateRoadmap(token, formData);
+      const response = await generateRoadmap(user?.token, formData);
       if (onRoadmapGenerated) {
         onRoadmapGenerated(response.roadmap);
       }

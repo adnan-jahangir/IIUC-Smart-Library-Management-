@@ -9,6 +9,7 @@ const {
   summarize,
   chat,
   getUsageStats,
+  getBookInsight,
 } = require('../controllers/ai.controller');
 
 // New session-based chat controller
@@ -17,6 +18,7 @@ const {
   listSessions,
   getSession,
   deleteSession,
+  updateSessionTitle,
 } = require('../controllers/chat.controller');
 
 // Rate limiter: 20 requests per 15-minute window per user
@@ -32,8 +34,12 @@ router.post('/chat', protect, limiter, sendMessage);
 router.get('/chat/sessions', protect, listSessions);
 router.get('/chat/sessions/:id', protect, getSession);
 router.delete('/chat/sessions/:id', protect, deleteSession);
+router.patch('/chat/sessions/:id/title', protect, updateSessionTitle);
 
 // ── Admin: usage stats ──────────────────────────────────────────────────
 router.get('/usage', protect, getUsageStats);
+
+// ── Book Insights ───────────────────────────────────────────────────────
+router.get('/book-insight/:bookId', protect, getBookInsight);
 
 module.exports = router;

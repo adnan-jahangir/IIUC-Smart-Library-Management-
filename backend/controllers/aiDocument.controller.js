@@ -1,7 +1,10 @@
-const pdfParse = require('pdf-parse');
+const { PDFParse } = require('pdf-parse');
 const UploadedDocument = require('../models/UploadedDocument');
+const DocumentChunk = require('../models/DocumentChunk');
 const AiUsageLog = require('../models/AiUsageLog');
 const { getChatCompletion } = require('../services/openaiService');
+const { chunkText: chunkTextForEmbedding, generateEmbeddingsBatch } = require('../services/embeddingService');
+const { retrieveRelevantChunks } = require('../services/ragRetrievalService');
 
 // Helper: log usage
 async function logUsage(userId, role, feature, tokensUsed) {
@@ -79,11 +82,21 @@ exports.uploadDocument = async (req, res) => {
 
     const maxPages = 20; // Cap processed pages
     let pdfData;
+    let parser;
     try {
-      pdfData = await pdfParse(req.file.buffer, { max: maxPages });
+      parser = new PDFParse({ data: req.file.buffer });
+      const parseResult = await parser.getText({ last: maxPages });
+      pdfData = {
+        numpages: parseResult.pages ? parseResult.pages.length : (await parser.getInfo()).total,
+        text: parseResult.text
+      };
     } catch (err) {
       console.error('PDF parsing error:', err.message);
       return res.status(420).json({ message: 'Failed to read PDF. The file might be corrupted or password-protected.' });
+    } finally {
+      if (parser && typeof parser.destroy === 'function') {
+        await parser.destroy().catch(console.error);
+      }
     }
 
     const totalPages = pdfData.numpages || 0;
@@ -99,18 +112,66 @@ exports.uploadDocument = async (req, res) => {
       filename: req.file.originalname,
       extractedText: isScanned ? '' : extractedText,
       pageCount: totalPages,
-      isScanned
+      isScanned,
+      embeddingStatus: isScanned ? 'skipped' : 'pending',
     });
 
-    return res.json({
+    // Respond immediately — embedding happens in background
+    res.json({
       documentId: doc._id,
       filename: doc.filename,
       isScanned,
       pageCount: totalPages,
+      embeddingStatus: doc.embeddingStatus,
       message: totalPages > maxPages 
         ? `PDF successfully uploaded. (Note: Only the first ${maxPages} pages were processed to optimize performance.)` 
         : 'PDF successfully uploaded.'
     });
+
+    // ---- BACKGROUND: chunk text & generate embeddings ----
+    if (!isScanned && extractedText.trim().length > 0) {
+      (async () => {
+        try {
+          const chunks = chunkTextForEmbedding(extractedText, 400, 50);
+          if (chunks.length === 0) {
+            doc.embeddingStatus = 'skipped';
+            await doc.save();
+            return;
+          }
+
+          const embeddingResults = await generateEmbeddingsBatch(chunks, 250);
+
+          const chunkDocs = [];
+          for (const result of embeddingResults) {
+            if (result.embedding) {
+              chunkDocs.push({
+                documentId: doc._id,
+                userId: req.user.id,
+                chunkIndex: result.index,
+                chunkText: chunks[result.index],
+                embedding: result.embedding,
+              });
+            } else {
+              console.warn(`Skipping chunk ${result.index} for doc ${doc._id}: ${result.error}`);
+            }
+          }
+
+          if (chunkDocs.length > 0) {
+            await DocumentChunk.insertMany(chunkDocs);
+          }
+
+          doc.embeddingStatus = chunkDocs.length > 0 ? 'ready' : 'failed';
+          await doc.save();
+          console.log(`Embeddings complete for doc ${doc._id}: ${chunkDocs.length}/${chunks.length} chunks indexed.`);
+        } catch (err) {
+          console.error(`Background embedding failed for doc ${doc._id}:`, err.message);
+          try {
+            doc.embeddingStatus = 'failed';
+            await doc.save();
+          } catch (_) { /* ignore save errors here */ }
+        }
+      })();
+    }
   } catch (error) {
     console.error('Document upload error:', error);
     return res.status(500).json({ message: 'An unexpected error occurred during document processing.', error: error.message });
@@ -152,7 +213,7 @@ exports.summarizeDocument = async (req, res) => {
         const { reply, usage } = await getChatCompletion([
           { role: 'system', content: 'You are a professional academic assistant. Provide a structured, concise, and comprehensive summary of the provided text. Use bullet points and paragraphs.' },
           { role: 'user', content: chunks[0] }
-        ], { temperature: 0.3 });
+        ], { temperature: 0.3, maxTokens: 4096 });
         finalSummary = reply;
         totalTokens = usage?.total_tokens || 0;
       } catch (err) {
@@ -169,7 +230,7 @@ exports.summarizeDocument = async (req, res) => {
           const { reply, usage } = await getChatCompletion([
             { role: 'system', content: `You are an AI academic assistant. Summarize section ${i + 1} of a larger document. Focus on main topics, conclusions, and important facts.` },
             { role: 'user', content: chunks[i] }
-          ], { temperature: 0.3 });
+          ], { temperature: 0.3, maxTokens: 2048 });
           chunkSummaries.push(reply);
           totalTokens += usage?.total_tokens || 0;
         } catch (err) {
@@ -184,7 +245,7 @@ exports.summarizeDocument = async (req, res) => {
         const { reply, usage } = await getChatCompletion([
           { role: 'system', content: 'You are an AI academic assistant. You are given summaries of various sections of a larger document. Combine and compile them into a single, cohesive, logically-structured, and concise overall summary of the entire document.' },
           { role: 'user', content: combinedSummaries }
-        ], { temperature: 0.3 });
+        ], { temperature: 0.3, maxTokens: 4096 });
         finalSummary = reply;
         totalTokens += usage?.total_tokens || 0;
       } catch (err) {
@@ -262,7 +323,7 @@ Generate exactly ${targetCount} ${type.toUpperCase()} questions now.`
     let replyText = '';
     let tokensUsed = 0;
     try {
-      const { reply, usage } = await getChatCompletion(promptMessages, { temperature: 0.4 });
+      const { reply, usage } = await getChatCompletion(promptMessages, { temperature: 0.4, maxTokens: 4096 });
       replyText = reply;
       tokensUsed = usage?.total_tokens || 0;
     } catch (err) {
@@ -284,7 +345,7 @@ Generate exactly ${targetCount} ${type.toUpperCase()} questions now.`
     }
 
     // Log usage
-    await logUsage(userId, userRole, 'chat', tokensUsed);
+    await logUsage(userId, userRole, 'generate-questions', tokensUsed);
 
     return res.json({ questions: parsed });
   } catch (error) {
@@ -370,7 +431,7 @@ Question: ${question}`
 exports.listDocuments = async (req, res) => {
   try {
     const docs = await UploadedDocument.find({ userId: req.user.id })
-      .select('filename summary pageCount isScanned createdAt')
+      .select('filename summary pageCount isScanned embeddingStatus createdAt')
       .sort({ createdAt: -1 });
 
     return res.json({ documents: docs });
@@ -395,6 +456,9 @@ exports.deleteDocument = async (req, res) => {
     if (result.deletedCount === 0) {
       return res.status(404).json({ message: 'Document not found.' });
     }
+
+    // Cascade delete associated chunks
+    await DocumentChunk.deleteMany({ documentId: req.params.id });
 
     return res.json({ message: 'Document deleted successfully.' });
   } catch (error) {
@@ -421,3 +485,91 @@ exports.getDocument = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Ask a question across ALL of the user's uploaded documents (multi-doc RAG)
+ * @route   POST /api/ai/document/ask-all
+ * @access  Private
+ */
+exports.askAllDocuments = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userRole = String(req.user.role || 'student').toLowerCase();
+    const { question } = req.body;
+
+    if (!question || !question.trim()) {
+      return res.status(400).json({ message: 'Question is required.' });
+    }
+
+    // Retrieve the most relevant chunks across all user documents
+    let relevantChunks;
+    try {
+      relevantChunks = await retrieveRelevantChunks(userId, question, 5);
+    } catch (err) {
+      console.error('Vector search failed:', err.message);
+      return res.status(502).json({ message: 'Failed to search your document library. Please try again.' });
+    }
+
+    if (!relevantChunks || relevantChunks.length === 0) {
+      return res.json({
+        answer: 'No relevant content was found across your uploaded documents. Please upload documents first, or try rephrasing your question.',
+        sourcesUsed: [],
+      });
+    }
+
+    // Build context from retrieved chunks, labeled by source document
+    const contextParts = relevantChunks.map((chunk, i) =>
+      `--- Context ${i + 1} from "${chunk.filename}" (relevance: ${(chunk.score * 100).toFixed(1)}%) ---\n${chunk.chunkText}`
+    );
+    const context = contextParts.join('\n\n');
+
+    // Deduplicate sources
+    const sourcesMap = new Map();
+    for (const chunk of relevantChunks) {
+      if (!sourcesMap.has(String(chunk.documentId))) {
+        sourcesMap.set(String(chunk.documentId), {
+          documentId: chunk.documentId,
+          filename: chunk.filename,
+        });
+      }
+    }
+    const sourcesUsed = Array.from(sourcesMap.values());
+
+    const promptMessages = [
+      {
+        role: 'system',
+        content: `You are an AI document Q&A assistant with access to a student's uploaded study materials.
+You answer questions based ONLY on the provided document context below.
+
+Strict rules:
+1. Ground your answer ONLY in the provided document context. Do not use external knowledge.
+2. If the answer cannot be found in the provided context, respond: "I'm sorry, but that information is not covered in your uploaded documents."
+3. Do not make up facts or extrapolate beyond what is stated.
+4. When relevant, mention which source document(s) your answer draws from.
+5. Use clear, well-structured markdown formatting.`
+      },
+      {
+        role: 'user',
+        content: `${context}\n\n---\nQuestion: ${question}`
+      }
+    ];
+
+    let answer = '';
+    let tokensUsed = 0;
+    try {
+      const result = await getChatCompletion(promptMessages, { temperature: 0.3, maxTokens: 2048 });
+      answer = result.reply;
+      tokensUsed = result.usage?.total_tokens || 0;
+    } catch (err) {
+      console.error('AI multi-doc Q&A error:', err.message);
+      return res.status(502).json({ message: 'AI failed to generate an answer. Please try again.' });
+    }
+
+    // Log usage
+    await logUsage(userId, userRole, 'ask-all-documents', tokensUsed);
+
+    return res.json({ answer, sourcesUsed });
+  } catch (error) {
+    console.error('Ask all documents error:', error);
+    return res.status(500).json({ message: 'An unexpected error occurred during multi-document Q&A.', error: error.message });
+  }
+};

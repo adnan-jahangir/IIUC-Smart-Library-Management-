@@ -173,9 +173,9 @@ const BookDetails = () => {
 
               <Link
                 to={`/digital-reader/${book.id}`}
-                className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-center block transition-all"
+                className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-center block transition-all animate-pulse hover:animate-none"
               >
-                Read Digital Version (PDF)
+                About this Book
               </Link>
             </div>
           </div>

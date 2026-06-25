@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Sparkles, FileText, Upload, Trash2, ArrowLeft, Loader2, RefreshCw, AlertCircle, FilePlus, ChevronRight } from 'lucide-react';
+import { Sparkles, FileText, Upload, Trash2, ArrowLeft, Loader2, RefreshCw, AlertCircle, FilePlus, ChevronRight, Zap } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { listUploadedDocuments, deleteUploadedDocument } from '../../services/aiApi';
 import DocumentUpload from '../../components/ai/DocumentUpload';
@@ -155,7 +155,17 @@ const AIAssistantDocumentTab = () => {
               `router.get('/:id', protect, getDocument);`
               This is extremely clean! Let's do it immediately.
           */}
-          <WorkspaceLoader documentId={selectedDoc._id} filename={selectedDoc.filename} initialSummary={selectedDoc.summary} token={user.token} />
+          <WorkspaceLoader 
+            documentId={selectedDoc._id} 
+            filename={selectedDoc.filename} 
+            initialSummary={selectedDoc.summary} 
+            token={user.token}
+            documents={documents}
+            onSelectDocument={(docId) => {
+              const target = documents.find(d => d._id === docId);
+              if (target) setSelectedDoc(target);
+            }}
+          />
         </div>
       ) : (
         /* Documents Directory List View */
@@ -215,8 +225,18 @@ const AIAssistantDocumentTab = () => {
                         <h4 className="font-bold text-slate-800 text-sm group-hover:text-indigo-600 truncate transition-colors" title={doc.filename}>
                           {doc.filename}
                         </h4>
-                        <p className="text-[11px] text-slate-450 font-semibold mt-0.5">
+                        <p className="text-[11px] text-slate-450 font-semibold mt-0.5 flex items-center gap-1.5">
                           {doc.pageCount ? `${doc.pageCount} pages` : 'unknown pages'} • Uploaded {new Date(doc.createdAt).toLocaleDateString()}
+                          {doc.embeddingStatus === 'pending' && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 text-amber-600 rounded text-[10px] font-bold border border-amber-200 animate-pulse">
+                              <Zap className="w-2.5 h-2.5" /> Indexing...
+                            </span>
+                          )}
+                          {doc.embeddingStatus === 'failed' && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-rose-50 text-rose-500 rounded text-[10px] font-bold border border-rose-200">
+                              <AlertCircle className="w-2.5 h-2.5" /> Index failed
+                            </span>
+                          )}
                         </p>
                       </div>
                     </div>
@@ -244,7 +264,7 @@ const AIAssistantDocumentTab = () => {
 
 // Workspace loader helper to fetch document text dynamically on open
 import axios from 'axios';
-const WorkspaceLoader = ({ documentId, filename, initialSummary, token }) => {
+const WorkspaceLoader = ({ documentId, filename, initialSummary, token, documents, onSelectDocument }) => {
   const [loading, setLoading] = useState(true);
   const [documentDetails, setDocumentDetails] = useState(null);
 
@@ -292,6 +312,8 @@ const WorkspaceLoader = ({ documentId, filename, initialSummary, token }) => {
       initialSummary={documentDetails.summary || initialSummary}
       isScannedText={documentDetails.isScanned}
       rawText={documentDetails.extractedText}
+      documents={documents}
+      onSelectDocument={onSelectDocument}
     />
   );
 };

@@ -17,7 +17,13 @@ function getClient() {
   return _client;
 }
 
-const DEFAULT_MODEL = 'gemini-2.5-flash';
+const DEFAULT_MODEL = 'gemini-3.1-flash-lite';
+const MODELS_FALLBACK = [
+  'gemini-3.1-flash-lite',
+  'gemini-2.5-flash-lite',
+  'gemini-2.5-flash',
+  'gemini-flash-lite-latest'
+];
 
 // ---------------------------------------------------------------------------
 // Build the library-assistant system prompt (role-aware)
@@ -67,41 +73,53 @@ function parseMessages(messages) {
 // ---------------------------------------------------------------------------
 async function getChatCompletion(messages, options = {}) {
   const client = getClient();
-  const model = options.model || DEFAULT_MODEL;
+  const models = options.model ? [options.model] : MODELS_FALLBACK;
   const temperature = options.temperature ?? 0.7;
   const maxTokens = options.maxTokens ?? 1024;
 
   const { systemInstruction, contents } = parseMessages(messages);
 
-  let response;
-  try {
-    response = await client.models.generateContent({
-      model,
-      contents,
-      config: {
-        systemInstruction,
-        temperature,
-        maxOutputTokens: maxTokens,
-        tools: [{ googleSearch: {} }],
+  let lastError;
+  for (const model of models) {
+    try {
+      const response = await client.models.generateContent({
+        model,
+        contents,
+        config: {
+          systemInstruction,
+          temperature,
+          maxOutputTokens: maxTokens,
+          ...(options.response_format?.type === 'json_object'
+            ? { responseMimeType: "application/json" }
+            : { tools: [{ googleSearch: {} }] }
+          ),
+        }
+      });
+
+      const reply = response.text || '';
+      const usage = {
+        prompt_tokens: response.usageMetadata?.promptTokenCount || 0,
+        completion_tokens: response.usageMetadata?.candidatesTokenCount || 0,
+        total_tokens: response.usageMetadata?.totalTokenCount || 0,
+      };
+      const sources = response.candidates?.[0]?.groundingMetadata || null;
+
+      return { reply, usage, sources };
+    } catch (error) {
+      console.warn(`Model ${model} failed:`, error.message);
+      lastError = error;
+      if (error.status === 404 || error.status === 429 || error.message.toLowerCase().includes('quota') || error.message.toLowerCase().includes('not found') || error.message.toLowerCase().includes('unavailable') || error.status === 503) {
+        continue;
       }
-    });
-  } catch (error) {
-    console.error("Gemini API Error:", error.message);
-    const err = new Error(error.message);
-    if (error.status === 401 || error.message.toLowerCase().includes('api key')) err.status = 401;
-    if (error.status === 429 || error.message.toLowerCase().includes('quota')) err.status = 429;
-    throw err;
+      throw error;
+    }
   }
 
-  const reply = response.text || '';
-  const usage = {
-    prompt_tokens: response.usageMetadata?.promptTokenCount || 0,
-    completion_tokens: response.usageMetadata?.candidatesTokenCount || 0,
-    total_tokens: response.usageMetadata?.totalTokenCount || 0,
-  };
-  const sources = response.candidates?.[0]?.groundingMetadata || null;
-
-  return { reply, usage, sources };
+  console.error("Gemini API Error (all models failed):", lastError.message);
+  const err = new Error(lastError.message);
+  if (lastError.status === 401 || lastError.message.toLowerCase().includes('api key')) err.status = 401;
+  if (lastError.status === 429 || lastError.message.toLowerCase().includes('quota')) err.status = 429;
+  throw err;
 }
 
 // ---------------------------------------------------------------------------
@@ -109,7 +127,7 @@ async function getChatCompletion(messages, options = {}) {
 // ---------------------------------------------------------------------------
 async function getStreamingChatCompletion(messages, res, options = {}) {
   const client = getClient();
-  const model = options.model || DEFAULT_MODEL;
+  const models = options.model ? [options.model] : MODELS_FALLBACK;
   const temperature = options.temperature ?? 0.7;
   const maxTokens = options.maxTokens ?? 1024;
 
@@ -121,59 +139,69 @@ async function getStreamingChatCompletion(messages, res, options = {}) {
   res.flushHeaders();
 
   const { systemInstruction, contents } = parseMessages(messages);
-  let fullReply = '';
-  let usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
 
-  try {
-    const stream = await client.models.generateContentStream({
-      model,
-      contents,
-      config: {
-        systemInstruction,
-        temperature,
-        maxOutputTokens: maxTokens,
-      }
-    });
+  let lastError;
+  for (const model of models) {
+    try {
+      let fullReply = '';
+      let usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
 
-    for await (const chunk of stream) {
-      if (chunk.usageMetadata) {
-        usage = {
-          prompt_tokens: chunk.usageMetadata.promptTokenCount || 0,
-          completion_tokens: chunk.usageMetadata.candidatesTokenCount || 0,
-          total_tokens: chunk.usageMetadata.totalTokenCount || 0,
-        };
+      const stream = await client.models.generateContentStream({
+        model,
+        contents,
+        config: {
+          systemInstruction,
+          temperature,
+          maxOutputTokens: maxTokens,
+        }
+      });
+
+      for await (const chunk of stream) {
+        if (chunk.usageMetadata) {
+          usage = {
+            prompt_tokens: chunk.usageMetadata.promptTokenCount || 0,
+            completion_tokens: chunk.usageMetadata.candidatesTokenCount || 0,
+            total_tokens: chunk.usageMetadata.totalTokenCount || 0,
+          };
+        }
+        const delta = chunk.text;
+        if (delta) {
+          fullReply += delta;
+          res.write(`data: ${JSON.stringify({ token: delta })}\n\n`);
+        }
       }
-      const delta = chunk.text;
-      if (delta) {
-        fullReply += delta;
-        res.write(`data: ${JSON.stringify({ token: delta })}\n\n`);
+
+      // Send done event with usage
+      res.write(
+        `data: ${JSON.stringify({ done: true, usage, fullReply })}\n\n`
+      );
+      res.end();
+
+      return { reply: fullReply, usage };
+    } catch (error) {
+      console.warn(`Streaming Model ${model} failed:`, error.message);
+      lastError = error;
+      if (error.status === 404 || error.status === 429 || error.message.toLowerCase().includes('quota') || error.message.toLowerCase().includes('not found') || error.message.toLowerCase().includes('unavailable') || error.status === 503) {
+        continue;
       }
+      break;
     }
-
-    // Send done event with usage
-    res.write(
-      `data: ${JSON.stringify({ done: true, usage, fullReply })}\n\n`
-    );
-    res.end();
-
-    return { reply: fullReply, usage };
-  } catch (error) {
-    console.error("Gemini API Streaming Error:", error.message);
-    const err = new Error(error.message);
-    if (error.message.toLowerCase().includes('api key')) err.status = 401;
-    if (error.message.toLowerCase().includes('quota')) err.status = 429;
-
-    // If we already started streaming, send error event then close
-    const errorMsg =
-      err.status === 429
-        ? 'The AI service is temporarily overloaded. Please try again in a moment.'
-        : 'An error occurred while generating the response.';
-
-    res.write(`data: ${JSON.stringify({ error: errorMsg })}\n\n`);
-    res.end();
-
-    throw err; // re-throw so the caller can log
   }
+
+  console.error("Gemini API Streaming Error:", lastError.message);
+  const err = new Error(lastError.message);
+  if (lastError.message.toLowerCase().includes('api key')) err.status = 401;
+  if (lastError.message.toLowerCase().includes('quota')) err.status = 429;
+
+  const errorMsg =
+    err.status === 429
+      ? 'The AI service is temporarily overloaded. Please try again in a moment.'
+      : 'An error occurred while generating the response.';
+
+  res.write(`data: ${JSON.stringify({ error: errorMsg })}\n\n`);
+  res.end();
+
+  throw err;
 }
 
 module.exports = {

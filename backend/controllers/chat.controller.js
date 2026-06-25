@@ -48,7 +48,19 @@ function buildMessagesForGemini(session, role, newUserMessage) {
 
   // Add the new user message
   if (newUserMessage) {
-    messages.push({ role: 'user', content: newUserMessage });
+    // Inject algorithm prompt rules to ensure the AI responds with JSON if the user asks for an algorithm
+    const algorithmInstruction = `
+If the user asks you to explain or visualize an algorithm (like bubble sort, selection sort, binary search, merge sort, quick sort, etc.), 
+you MUST return a JSON object with the following structure:
+{
+  "isAlgorithm": true,
+  "algorithmId": "bubble-sort", // Use kebab-case string like 'selection-sort', 'binary-search', 'merge-sort', 'quick-sort', 'insertion-sort'
+  "complexity": "simple", // Return "simple" for bubble, selection, insertion, binary search. Return "complex" for merge, quick, or longer algorithms
+  "explanation": "Brief explanation of how the algorithm works."
+}
+If the user's request is NOT about an algorithm, answer normally as a helpful assistant in plain text.`;
+    
+    messages.push({ role: 'user', content: newUserMessage + '\n\n' + algorithmInstruction });
   }
 
   return messages;
@@ -129,10 +141,37 @@ exports.sendMessage = async (req, res) => {
         temperature: 0.7,
       });
 
+      let finalReply = reply;
+      let isAlgorithm = false;
+      let algorithmId = null;
+      let complexity = null;
+
+      // Try to parse algorithm JSON response
+      try {
+        let cleanContent = reply.trim();
+        if (cleanContent.startsWith('```json')) {
+          cleanContent = cleanContent.replace(/^```json/, '').replace(/```$/, '').trim();
+        } else if (cleanContent.startsWith('```')) {
+          cleanContent = cleanContent.replace(/^```/, '').replace(/```$/, '').trim();
+        }
+
+        if (cleanContent.startsWith('{') && cleanContent.endsWith('}')) {
+          const jsonResponse = JSON.parse(cleanContent);
+          if (jsonResponse.isAlgorithm) {
+            isAlgorithm = true;
+            algorithmId = jsonResponse.algorithmId;
+            complexity = jsonResponse.complexity;
+            finalReply = jsonResponse.explanation || 'Algorithm visualization ready.';
+          }
+        }
+      } catch (e) {
+        // Not JSON, ignore
+      }
+
       // Save assistant reply
       session.messages.push({
         role: 'assistant',
-        content: reply,
+        content: finalReply,
         timestamp: new Date(),
       });
       await session.save();
@@ -141,9 +180,12 @@ exports.sendMessage = async (req, res) => {
 
       return res.json({
         sessionId: session._id,
-        reply,
+        reply: finalReply,
         title: session.title,
         sources: sources || null,
+        isAlgorithm,
+        algorithmId,
+        complexity
       });
     } catch (aiErr) {
       console.error('Gemini chat error:', aiErr.message);
@@ -225,5 +267,32 @@ exports.deleteSession = async (req, res) => {
   } catch (error) {
     console.error('Delete session error:', error);
     return res.status(500).json({ message: 'Failed to delete session.' });
+  }
+};
+
+// ===========================================================================
+// PATCH /api/ai/chat/sessions/:id/title — Rename a session
+// ===========================================================================
+exports.updateSessionTitle = async (req, res) => {
+  try {
+    const { title } = req.body;
+    if (!title || !title.trim()) {
+      return res.status(400).json({ message: 'Title is required.' });
+    }
+
+    const session = await ChatSession.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user.id },
+      { title: title.trim() },
+      { new: true }
+    );
+
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found.' });
+    }
+
+    return res.json({ session });
+  } catch (error) {
+    console.error('Update session title error:', error);
+    return res.status(500).json({ message: 'Failed to update session title.' });
   }
 };

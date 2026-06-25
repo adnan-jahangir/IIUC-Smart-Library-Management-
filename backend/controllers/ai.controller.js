@@ -17,7 +17,13 @@ function getAiClient() {
   return _ai;
 }
 
-const DEFAULT_MODEL = 'gemini-2.5-flash';
+const DEFAULT_MODEL = 'gemini-3.1-flash-lite';
+const MODELS_FALLBACK = [
+  'gemini-3.1-flash-lite',
+  'gemini-2.5-flash-lite',
+  'gemini-2.5-flash',
+  'gemini-flash-lite-latest'
+];
 
 // ---------------------------------------------------------------------------
 // Helper: format book catalog for system prompt
@@ -85,51 +91,60 @@ async function sendChatToGemini(conversationHistory, userMessage, availableBooks
   const contents = buildGeminiContents(conversationHistory, userMessage);
   const temperature = options.deterministic ? 0.0 : 0.7;
 
-  let response;
-  try {
-    response = await ai.models.generateContent({
-      model: DEFAULT_MODEL,
-      contents,
-      config: {
-        systemInstruction: systemPrompt,
-        temperature,
-        maxOutputTokens: 1024,
-        tools: [{ googleSearch: {} }],
+  let lastError;
+  for (const model of MODELS_FALLBACK) {
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents,
+        config: {
+          systemInstruction: systemPrompt,
+          temperature,
+          maxOutputTokens: 1024,
+          tools: [{ googleSearch: {} }],
+        }
+      });
+
+      const reply = response.text || '';
+      if (!reply) {
+        throw new Error('Gemini request succeeded but returned no assistant text.');
       }
-    });
-  } catch (error) {
-    console.error("Gemini API Error:", error.message);
-    const err = new Error(error.message);
-    if (error.message.toLowerCase().includes('api key')) err.status = 401;
-    if (error.message.toLowerCase().includes('quota')) err.status = 429;
-    throw err;
+
+      return {
+        reply,
+        modelUsed: model,
+        usage: {
+          prompt_tokens: response.usageMetadata?.promptTokenCount || 0,
+          completion_tokens: response.usageMetadata?.candidatesTokenCount || 0,
+          total_tokens: response.usageMetadata?.totalTokenCount || 0,
+        },
+        sources: response.candidates?.[0]?.groundingMetadata || null
+      };
+    } catch (error) {
+      console.warn(`Chat model ${model} failed:`, error.message);
+      lastError = error;
+      if (error.status === 404 || error.status === 429 || error.message.toLowerCase().includes('quota') || error.message.toLowerCase().includes('not found') || error.message.toLowerCase().includes('unavailable') || error.status === 503) {
+        continue;
+      }
+      throw error;
+    }
   }
 
-  const reply = response.text || '';
-  if (!reply) {
-    throw new Error('Gemini request succeeded but returned no assistant text.');
-  }
-
-  return {
-    reply,
-    usage: {
-      prompt_tokens: response.usageMetadata?.promptTokenCount || 0,
-      completion_tokens: response.usageMetadata?.candidatesTokenCount || 0,
-      total_tokens: response.usageMetadata?.totalTokenCount || 0,
-    },
-    sources: response.candidates?.[0]?.groundingMetadata || null
-  };
+  const err = new Error(lastError.message);
+  if (lastError.message.toLowerCase().includes('api key')) err.status = 401;
+  if (lastError.message.toLowerCase().includes('quota')) err.status = 429;
+  throw err;
 }
 
 // ---------------------------------------------------------------------------
 // Helper: log AI usage to MongoDB
 // ---------------------------------------------------------------------------
-async function logAiUsage(userId, feature, usage) {
+async function logAiUsage(userId, feature, usage, modelUsed = DEFAULT_MODEL) {
   try {
     await AiUsageLog.create({
       user: userId,
       feature,
-      model: DEFAULT_MODEL,
+      model: modelUsed,
       promptTokens: usage?.prompt_tokens || 0,
       completionTokens: usage?.completion_tokens || 0,
       totalTokens: usage?.total_tokens || 0,
@@ -365,35 +380,43 @@ exports.summarize = async (req, res) => {
     }
 
     const ai = getAiClient();
-    let response;
-    try {
-      response = await ai.models.generateContent({
-        model: DEFAULT_MODEL,
-        contents: `Please summarize the following:\n\n${textToSummarize}`,
-        config: {
-          systemInstruction: 'You are a helpful academic assistant. Provide clear, concise summaries of the given text. Focus on key points and main ideas.',
-          temperature: 0.3,
-          maxOutputTokens: 512,
+    let lastError;
+    for (const model of MODELS_FALLBACK) {
+      try {
+        const response = await ai.models.generateContent({
+          model,
+          contents: `Please summarize the following:\n\n${textToSummarize}`,
+          config: {
+            systemInstruction: 'You are a helpful academic assistant. Provide clear, concise summaries of the given text. Focus on key points and main ideas.',
+            temperature: 0.3,
+            maxOutputTokens: 512,
+          }
+        });
+
+        const summary = response.text || 'No summary generated.';
+        const usage = {
+          prompt_tokens: response.usageMetadata?.promptTokenCount || 0,
+          completion_tokens: response.usageMetadata?.candidatesTokenCount || 0,
+          total_tokens: response.usageMetadata?.totalTokenCount || 0,
+        };
+
+        await logAiUsage(req.user.id, 'summarize', usage, model);
+
+        return res.json({ summary });
+      } catch (error) {
+        console.warn(`Summarize model ${model} failed:`, error.message);
+        lastError = error;
+        if (error.status === 404 || error.status === 429 || error.message.toLowerCase().includes('quota') || error.message.toLowerCase().includes('not found') || error.message.toLowerCase().includes('unavailable') || error.status === 503) {
+          continue;
         }
-      });
-    } catch (error) {
-      console.error("Gemini API Error:", error.message);
-      const err = new Error(error.message);
-      if (error.message.toLowerCase().includes('api key')) err.status = 401;
-      if (error.message.toLowerCase().includes('quota')) err.status = 429;
-      throw err;
+        throw error;
+      }
     }
 
-    const summary = response.text || 'No summary generated.';
-    const usage = {
-      prompt_tokens: response.usageMetadata?.promptTokenCount || 0,
-      completion_tokens: response.usageMetadata?.candidatesTokenCount || 0,
-      total_tokens: response.usageMetadata?.totalTokenCount || 0,
-    };
-
-    await logAiUsage(req.user.id, 'summarize', usage);
-
-    res.json({ summary });
+    const err = new Error(lastError.message);
+    if (lastError.message.toLowerCase().includes('api key')) err.status = 401;
+    if (lastError.message.toLowerCase().includes('quota')) err.status = 429;
+    throw err;
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'AI summarize error', error: error.message });
@@ -599,5 +622,96 @@ exports.getUsageStats = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Failed to fetch AI usage stats', error: error.message });
+  }
+};
+
+// @desc    Generate accurate book insights using AI
+// @route   GET /api/ai/book-insight/:bookId
+// @access  Private
+exports.getBookInsight = async (req, res) => {
+  try {
+    const { bookId } = req.params;
+    let book;
+    if (bookId && bookId.match(/^[0-9a-fA-F]{24}$/)) {
+      book = await Book.findById(bookId);
+    }
+    if (!book) {
+      book = await Book.findOne({ customId: bookId });
+    }
+    if (!book) {
+      return res.status(404).json({ message: 'Book not found' });
+    }
+
+    const systemPrompt = `You are an expert academic librarian. Generate an accurate, highly-detailed educational overview of the textbook:
+"${book.title}" by ${book.author}.
+
+The output MUST be a valid JSON object matching the exact structure below, without Markdown blocks or additional text:
+{
+  "synopsis": "A comprehensive 2-paragraph summary explaining the core focus, target audience, and educational value of this textbook.",
+  "chapters": [
+    { "num": 1, "name": "Chapter 1: Name of Chapter", "description": "Brief details of what this chapter teaches." },
+    { "num": 2, "name": "Chapter 2: Name of Chapter", "description": "Brief details of what this chapter teaches." },
+    { "num": 3, "name": "Chapter 3: Name of Chapter", "description": "Brief details of what this chapter teaches." },
+    { "num": 4, "name": "Chapter 4: Name of Chapter", "description": "Brief details of what this chapter teaches." }
+  ],
+  "keyTakeaways": [
+    "Key concept or core curriculum topic covered",
+    "Another key concept or core curriculum topic covered"
+  ]
+}`;
+
+    const ai = getAiClient();
+    let replyText = '';
+    let lastError;
+
+    for (const model of MODELS_FALLBACK) {
+      try {
+        const response = await ai.models.generateContent({
+          model,
+          contents: `Generate a JSON overview for "${book.title}" by ${book.author} based on the system instruction.`,
+          config: {
+            systemInstruction: systemPrompt,
+            temperature: 0.3,
+            maxOutputTokens: 2048,
+            responseMimeType: "application/json"
+          }
+        });
+        replyText = response.text || '';
+        break;
+      } catch (err) {
+        console.warn(`Book insight model ${model} failed:`, err.message);
+        lastError = err;
+        if (err.status === 404 || err.status === 429 || err.message.toLowerCase().includes('quota') || err.message.toLowerCase().includes('not found') || err.message.toLowerCase().includes('unavailable') || err.status === 503) {
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    if (!replyText) {
+      throw new Error(lastError ? lastError.message : 'AI generation failed');
+    }
+
+    let parsed;
+    try {
+      let cleanJson = replyText.trim();
+      if (cleanJson.startsWith('```json')) {
+        cleanJson = cleanJson.replace(/^```json/, '').replace(/```$/, '').trim();
+      } else if (cleanJson.startsWith('```')) {
+        cleanJson = cleanJson.replace(/^```/, '').replace(/```$/, '').trim();
+      }
+      parsed = JSON.parse(cleanJson);
+    } catch (parseErr) {
+      console.error('Failed to parse book insight JSON:', parseErr.message, replyText);
+      return res.status(502).json({ message: 'Failed to generate a clean book insight format. Please try again.' });
+    }
+
+    // Log usage
+    await logAiUsage(req.user.id, 'book-insight', { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 });
+
+    return res.json({ insight: parsed });
+  } catch (error) {
+    console.error('Book insight error:', error);
+    return res.status(500).json({ message: 'Failed to generate book insights.', error: error.message });
   }
 };

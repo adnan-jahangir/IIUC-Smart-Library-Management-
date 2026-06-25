@@ -45,7 +45,16 @@ The output MUST be a valid JSON object matching the exact structure below, witho
       "stageTitle": "String",
       "description": "String",
       "estimatedDuration": "String (e.g., '2 weeks')",
-      "subtopics": ["String", "String"]
+      "subtopics": ["String", "String"],
+      "realBooks": [
+        { "title": "String (title of a real, popular published book on this stage's topic)", "author": "String" }
+      ],
+      "youtubeChannels": [
+        { "name": "String (name of a popular YouTube channel or tutorial series for this stage's topic)", "link": "String (full URL, e.g. 'https://www.youtube.com/...')" }
+      ],
+      "onlineResources": [
+        { "title": "String (name of official documentation or tutorial guide)", "url": "String (full URL, e.g. 'https://...')" }
+      ]
     }
   ]
 }`;
@@ -64,9 +73,10 @@ ${goalText}`;
     let tokensUsed = 0;
 
     try {
-      // Use response_format: { type: "json_object" } supported by GPT-4o
+      // Use response_format: { type: "json_object" } supported by Gemini via our wrapper
       const { reply, usage } = await getChatCompletion(messages, { 
         temperature: 0.7, 
+        maxTokens: 4096,
         response_format: { type: "json_object" } 
       });
       replyText = reply;
@@ -81,10 +91,16 @@ ${goalText}`;
 
     let roadmapData;
     try {
-      roadmapData = JSON.parse(replyText.trim());
+      let cleanJson = replyText.trim();
+      if (cleanJson.startsWith('```json')) {
+        cleanJson = cleanJson.replace(/^```json/, '').replace(/```$/, '').trim();
+      } else if (cleanJson.startsWith('```')) {
+        cleanJson = cleanJson.replace(/^```/, '').replace(/```$/, '').trim();
+      }
+      roadmapData = JSON.parse(cleanJson);
     } catch (parseErr) {
       console.error('Failed to parse generated roadmap JSON:', parseErr.message, replyText);
-      return res.status(502).json({ message: 'The AI generated an invalid roadmap format. Please try again.' });
+      return res.status(502).json({ message: 'The AI generated an invalid roadmap format (token limit issue or invalid structure). Please try again.' });
     }
 
     // Secondary Step: Match books from DB based on subtopics

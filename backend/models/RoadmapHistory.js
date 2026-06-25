@@ -19,6 +19,18 @@ const stageSchema = new mongoose.Schema({
   recommendedBooks: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Book'
+  }],
+  realBooks: [{
+    title: String,
+    author: String
+  }],
+  youtubeChannels: [{
+    name: String,
+    link: String
+  }],
+  onlineResources: [{
+    title: String,
+    url: String
   }]
 }, { _id: false });
 

@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FileText, Sparkles, HelpCircle, MessageSquare, BookOpen, RefreshCw, Eye, EyeOff, Printer, Send, AlertCircle, Loader2 } from 'lucide-react';
+import { FileText, Sparkles, HelpCircle, MessageSquare, BookOpen, RefreshCw, Eye, EyeOff, Printer, Send, AlertCircle, Loader2, Download, Library, FileSearch } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
-import { summarizeDocument, generateDocumentQuestions, askDocumentQuestion } from '../../services/aiApi';
+import { summarizeDocument, generateDocumentQuestions, askDocumentQuestion, askAllDocuments } from '../../services/aiApi';
 import toast from 'react-hot-toast';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
-const DocumentWorkspace = ({ documentId, filename, initialSummary, isScannedText, rawText }) => {
+const DocumentWorkspace = ({ documentId, filename, initialSummary, isScannedText, rawText, documents = [], onSelectDocument }) => {
   const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState('summary');
   
@@ -20,6 +22,7 @@ const DocumentWorkspace = ({ documentId, filename, initialSummary, isScannedText
   const [revealedAnswers, setRevealedAnswers] = useState({}); // { [idx]: boolean }
 
   // Q&A Tab State
+  const [qaMode, setQaMode] = useState('single'); // 'single' | 'all'
   const [qaInput, setQaInput] = useState('');
   const [qaMessages, setQaMessages] = useState([
     { role: 'assistant', content: "Hello! Ask me any question, and I'll find the answer grounded strictly in the content of your uploaded document." }
@@ -67,13 +70,33 @@ const DocumentWorkspace = ({ documentId, filename, initialSummary, isScannedText
     const query = qaInput.trim();
     if (!query || !user?.token) return;
 
+    // In 'all' mode, check if the user has any documents
+    if (qaMode === 'all' && (!documents || documents.length === 0)) {
+      toast.error('Upload a document first to use cross-document search.');
+      return;
+    }
+
     setQaInput('');
     setQaMessages(prev => [...prev, { role: 'user', content: query }]);
     setAsking(true);
 
     try {
-      const data = await askDocumentQuestion(user.token, documentId, query);
-      setQaMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
+      if (qaMode === 'all') {
+        // Multi-document RAG
+        const data = await askAllDocuments(user.token, query);
+        const sourcesInfo = data.sourcesUsed && data.sourcesUsed.length > 0
+          ? data.sourcesUsed
+          : [];
+        setQaMessages(prev => [...prev, { 
+          role: 'assistant', 
+          content: data.answer,
+          sources: sourcesInfo
+        }]);
+      } else {
+        // Single-document Q&A
+        const data = await askDocumentQuestion(user.token, documentId, query);
+        setQaMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
+      }
     } catch (err) {
       console.error(err);
       setQaMessages(prev => [...prev, { role: 'assistant', content: "Sorry, I encountered an error while searching the document contents. Please try again." }]);
@@ -214,8 +237,8 @@ const DocumentWorkspace = ({ documentId, filename, initialSummary, isScannedText
               </div>
             ) : summary ? (
               <div className="space-y-6 max-w-4xl">
-                <div className="prose prose-slate max-w-none text-slate-700 text-sm sm:text-base leading-relaxed bg-slate-50/50 p-6 rounded-2xl border border-slate-100 whitespace-pre-line">
-                  {summary}
+                <div className="prose prose-slate prose-sm sm:prose-base max-w-none bg-slate-50/50 p-6 rounded-2xl border border-slate-100">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{summary}</ReactMarkdown>
                 </div>
                 <button
                   onClick={handleSummarize}
@@ -375,55 +398,130 @@ const DocumentWorkspace = ({ documentId, filename, initialSummary, isScannedText
 
         {/* Q&A TAB */}
         {activeTab === 'qa' && (
-          <div className="flex flex-col h-[400px] border border-slate-150 rounded-2xl overflow-hidden shadow-inner bg-slate-50/20">
-            {/* Chat Messages */}
-            <div className="flex-1 p-4 overflow-y-auto space-y-4">
-              {qaMessages.map((msg, idx) => (
-                <div
-                  key={idx}
-                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`max-w-xl p-3.5 rounded-2xl text-sm leading-relaxed ${
-                      msg.role === 'user'
-                        ? 'bg-indigo-600 text-white rounded-br-none shadow-sm'
-                        : 'bg-white border border-slate-150 text-slate-700 rounded-bl-none shadow-sm font-medium'
-                    }`}
-                  >
-                    {msg.content}
-                  </div>
-                </div>
-              ))}
-              {asking && (
-                <div className="flex justify-start">
-                  <div className="bg-white border border-slate-150 p-3.5 rounded-2xl rounded-bl-none shadow-sm flex items-center gap-1">
-                    <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                    <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                    <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                  </div>
-                </div>
-              )}
-              <div ref={messagesEndRef} />
+          <div className="space-y-4">
+            {/* Mode Toggle */}
+            <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl w-fit">
+              <button
+                onClick={() => {
+                  setQaMode('single');
+                  setQaMessages([{ role: 'assistant', content: "Hello! Ask me any question, and I'll find the answer grounded strictly in the content of this document." }]);
+                }}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                  qaMode === 'single'
+                    ? 'bg-white text-indigo-700 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <FileSearch className="w-3.5 h-3.5" /> This Document
+              </button>
+              <button
+                onClick={() => {
+                  setQaMode('all');
+                  setQaMessages([{ role: 'assistant', content: "Hello! I'll search across **all your uploaded documents** to answer your question. Ask me anything!" }]);
+                }}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                  qaMode === 'all'
+                    ? 'bg-white text-purple-700 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <Library className="w-3.5 h-3.5" /> All My Documents
+              </button>
             </div>
 
-            {/* Chat Input form */}
-            <form onSubmit={handleAskQuestion} className="bg-white border-t border-slate-150 p-3 flex gap-2">
-              <input
-                type="text"
-                value={qaInput}
-                onChange={(e) => setQaInput(e.target.value)}
-                placeholder={isScannedText ? "Q&A is disabled for scanned documents" : "Ask something about the document..."}
-                disabled={asking || isScannedText}
-                className="flex-1 px-4 py-2 bg-slate-50 focus:bg-white border border-slate-200 focus:border-indigo-500 rounded-xl focus:outline-none text-sm text-slate-800 placeholder:text-slate-400 font-medium"
-              />
-              <button
-                type="submit"
-                disabled={asking || !qaInput.trim() || isScannedText}
-                className="p-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-              >
-                <Send className="w-4 h-4" />
-              </button>
-            </form>
+            {/* No documents warning for multi-doc mode */}
+            {qaMode === 'all' && (!documents || documents.length === 0) && (
+              <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-xs font-semibold text-amber-700">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                Upload at least one document first to use cross-document search.
+              </div>
+            )}
+
+            {/* Chat Window */}
+            <div className={`flex flex-col h-[380px] border rounded-2xl overflow-hidden shadow-inner ${qaMode === 'all' ? 'border-purple-200 bg-purple-50/10' : 'border-slate-150 bg-slate-50/20'}`}>
+              {/* Chat Messages */}
+              <div className="flex-1 p-4 overflow-y-auto space-y-4">
+                {qaMessages.map((msg, idx) => (
+                  <div
+                    key={idx}
+                    className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div className="max-w-xl space-y-2">
+                      <div
+                        className={`p-3.5 rounded-2xl text-sm leading-relaxed ${
+                          msg.role === 'user'
+                            ? `${qaMode === 'all' ? 'bg-purple-600' : 'bg-indigo-600'} text-white rounded-br-none shadow-sm`
+                            : 'bg-white border border-slate-150 text-slate-700 rounded-bl-none shadow-sm font-medium'
+                        }`}
+                      >
+                        {msg.role === 'assistant' ? (
+                          <div className="prose prose-sm prose-slate max-w-none">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                          </div>
+                        ) : (
+                          msg.content
+                        )}
+                      </div>
+
+                      {/* Sources Used (multi-doc mode only) */}
+                      {msg.sources && msg.sources.length > 0 && (
+                        <div className="bg-purple-50 border border-purple-100 rounded-xl p-3 space-y-1.5">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-purple-500">Sources Used</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {msg.sources.map((src, sIdx) => (
+                              <button
+                                key={sIdx}
+                                onClick={() => onSelectDocument && onSelectDocument(src.documentId)}
+                                className="flex items-center gap-1 px-2.5 py-1 bg-white border border-purple-200 rounded-lg text-xs font-semibold text-purple-700 hover:bg-purple-50 hover:border-purple-300 transition-all cursor-pointer"
+                                title={`Open ${src.filename}`}
+                              >
+                                <FileText className="w-3 h-3" />
+                                {src.filename}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {asking && (
+                  <div className="flex justify-start">
+                    <div className="bg-white border border-slate-150 p-3.5 rounded-2xl rounded-bl-none shadow-sm flex items-center gap-1">
+                      <div className={`w-2 h-2 ${qaMode === 'all' ? 'bg-purple-600' : 'bg-indigo-600'} rounded-full animate-bounce`} style={{ animationDelay: '0ms' }}></div>
+                      <div className={`w-2 h-2 ${qaMode === 'all' ? 'bg-purple-600' : 'bg-indigo-600'} rounded-full animate-bounce`} style={{ animationDelay: '150ms' }}></div>
+                      <div className={`w-2 h-2 ${qaMode === 'all' ? 'bg-purple-600' : 'bg-indigo-600'} rounded-full animate-bounce`} style={{ animationDelay: '300ms' }}></div>
+                    </div>
+                  </div>
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* Chat Input form */}
+              <form onSubmit={handleAskQuestion} className="bg-white border-t border-slate-150 p-3 flex gap-2">
+                <input
+                  type="text"
+                  value={qaInput}
+                  onChange={(e) => setQaInput(e.target.value)}
+                  placeholder={
+                    isScannedText && qaMode === 'single'
+                      ? "Q&A is disabled for scanned documents" 
+                      : qaMode === 'all' 
+                        ? "Ask across all your uploaded documents..." 
+                        : "Ask something about this document..."
+                  }
+                  disabled={asking || (isScannedText && qaMode === 'single')}
+                  className={`flex-1 px-4 py-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-xl focus:outline-none text-sm text-slate-800 placeholder:text-slate-400 font-medium ${qaMode === 'all' ? 'focus:border-purple-500' : 'focus:border-indigo-500'}`}
+                />
+                <button
+                  type="submit"
+                  disabled={asking || !qaInput.trim() || (isScannedText && qaMode === 'single')}
+                  className={`p-2.5 ${qaMode === 'all' ? 'bg-purple-600 hover:bg-purple-500' : 'bg-indigo-600 hover:bg-indigo-500'} text-white rounded-xl shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center`}
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </form>
+            </div>
           </div>
         )}
 
@@ -437,7 +535,7 @@ const DocumentWorkspace = ({ documentId, filename, initialSummary, isScannedText
               )}
             </div>
             {rawText ? (
-              <div className="bg-slate-900 text-slate-350 p-5 rounded-2xl border border-slate-800 h-[380px] overflow-y-auto font-mono text-xs leading-relaxed whitespace-pre-wrap selection:bg-indigo-600 selection:text-white">
+              <div className="bg-slate-900 text-slate-300 p-5 rounded-2xl border border-slate-800 h-[380px] overflow-y-auto font-mono text-xs leading-relaxed whitespace-pre-wrap selection:bg-indigo-600 selection:text-white">
                 {rawText}
               </div>
             ) : (

@@ -55,7 +55,6 @@ const aiRoadmapRoutes = require('./routes/aiRoadmapRoutes');
 const aiAlgorithmRoutes = require('./routes/aiAlgorithmRoutes');
 const aiNotificationRoutes = require('./routes/aiNotificationRoutes');
 const aiTeacherRoutes = require('./routes/aiTeacherRoutes');
-const aiChatRoutes = require('./routes/aiChatRoutes');
 const analyticsRoutes = require('./routes/analytics.routes');
 
 const rateLimit = require('express-rate-limit');
@@ -76,7 +75,6 @@ app.use('/api/auth', authRoutes);
 app.use('/api/reservations', reservationRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/fines', fineRoutes);
-app.use('/api/ai/chat', aiChatRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/ai/recommend', aiRecommendRoutes);
 app.use('/api/ai/document', aiDocumentRoutes);

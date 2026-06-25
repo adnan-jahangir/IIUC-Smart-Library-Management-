@@ -8,6 +8,7 @@ const {
   summarizeDocument,
   generateQuestions,
   askDocument,
+  askAllDocuments,
   listDocuments,
   deleteDocument,
   getDocument
@@ -42,6 +43,9 @@ router.post('/upload', protect, (req, res, next) => {
     next();
   });
 }, uploadDocument);
+
+// Multi-document RAG endpoint (must be before /:id routes)
+router.post('/ask-all', protect, limiter, askAllDocuments);
 
 // Document manipulation routes
 router.post('/:id/summarize', protect, limiter, summarizeDocument);
