@@ -2,7 +2,7 @@
 
 A modern, full-stack library management system designed for the International Islamic University Chittagong (IIUC). Built on the **MERN Stack** and supercharged with an **AI Copilot**, it optimizes day-to-day library operations, automates book tracking, and provides intelligent recommendations and instant search support for students and faculty.
 
-[![Live Demo](https://img.shields.io/badge/Live-Demo-brightgreen)](https://iiuc-smartlibrary.vercel.app/)
+[![Live Demo](https://img.shields.io/badge/Live-Demo-brightgreen)](https://iiuc-smart-library.vercel.app/)
 [![Tech Stack](https://img.shields.io/badge/Stack-MERN%20%7C%20AI%20Chat%20%7C%20Vite-blue)](#tech-stack)
 
 ---
