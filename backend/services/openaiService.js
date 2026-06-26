@@ -7,7 +7,7 @@ let _client = null;
 
 function getClient() {
   if (_client) return _client;
-  const apiKey = process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY || '';
+  const apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || '';
   if (!apiKey) {
     throw new Error(
       'Missing API Key. Add it to your backend .env file.'

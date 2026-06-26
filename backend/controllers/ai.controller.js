@@ -9,7 +9,7 @@ let _ai = null;
 
 function getAiClient() {
   if (_ai) return _ai;
-  const apiKey = process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY || '';
+  const apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || '';
   if (!apiKey) {
     throw new Error('Missing API key. Set OPENAI_API_KEY or GEMINI_API_KEY in the backend .env file.');
   }
