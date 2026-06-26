@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Search, BookOpen, GraduationCap, Library, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
+import { resolveBookCover, getBookCoverFallback } from '../../utils/bookCover';
 
 const DEPARTMENTS = ['CSE', 'EEE', 'ETE', 'CCE', 'CIVIL', 'Pharmacy', 'BBA', 'ELL', 'Law'];
 
@@ -132,7 +133,12 @@ const Home = () => {
                 {bookOfTheWeek ? (
                   <Link to={`/catalog/book/${bookOfTheWeek.customId}`} className="flex gap-6 group">
                     <div className="w-32 h-44 bg-slate-200 rounded-xl overflow-hidden shadow-inner flex-shrink-0 relative">
-                      <img src={bookOfTheWeek.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={bookOfTheWeek.title} />
+                      <img 
+                        src={resolveBookCover(bookOfTheWeek)} 
+                        onError={(e) => { e.target.onerror = null; e.target.src = getBookCoverFallback(bookOfTheWeek.title); }}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                        alt={bookOfTheWeek.title} 
+                      />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300"></div>
                     </div>
                     <div className="flex flex-col justify-center space-y-2 flex-1 py-2">
