@@ -132,7 +132,7 @@ const Register = () => {
 
                   <div className="space-y-2">
                     <label className="text-xs sm:text-sm font-semibold text-slate-700">
-                      {formData.role === 'Student' ? 'University ID' : 'Email Address'}
+                      {formData.role === 'Student' ? 'University ID' : 'Email Prefix'}
                     </label>
                     <div className="relative flex">
                       <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10">
@@ -143,20 +143,18 @@ const Register = () => {
                          value={formData.universityId} 
                          onChange={handleChange} 
                          required 
-                         type={formData.role === 'Student' ? 'text' : 'email'}
-                         placeholder={formData.role === 'Student' ? (requiresDepartmentPrefix ? 'e.g. C230123' : '260123') : 'teacher@iiuc.ac.bd'} 
-                         className={`w-full pl-11 py-3 bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all text-sm sm:text-base text-slate-800 font-medium ${formData.role === 'Student' ? 'pr-2 border-r-0 rounded-l-xl uppercase' : 'pr-4 rounded-xl'}`} 
+                         type="text"
+                         placeholder={formData.role === 'Student' ? (requiresDepartmentPrefix ? 'e.g. C230123' : '260123') : 'sabbir'} 
+                         className={`w-full pl-11 pr-2 py-3 bg-slate-50 border border-slate-200 border-r-0 rounded-l-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all text-sm sm:text-base text-slate-800 font-medium ${formData.role === 'Student' ? 'uppercase' : ''}`} 
                       />
-                      {formData.role === 'Student' && (
-                        <div className="px-3 sm:px-4 py-3 bg-slate-100 border border-slate-200 rounded-r-xl text-slate-500 font-medium text-xs sm:text-sm flex items-center shrink-0">
-                          @ugrad.iiuc.ac.bd
-                        </div>
-                      )}
+                      <div className="px-3 sm:px-4 py-3 bg-slate-100 border border-slate-200 rounded-r-xl text-slate-500 font-medium text-xs sm:text-sm flex items-center shrink-0">
+                        {formData.role === 'Student' ? '@ugrad.iiuc.ac.bd' : '@iiuc.ac.bd'}
+                      </div>
                     </div>
                     <p className="text-[11px] sm:text-xs text-slate-500">
                       {formData.role === 'Student'
                         ? (requiresDepartmentPrefix ? 'Students should include the department code prefix.' : 'Teachers and librarians can enter the ID without a prefix.')
-                        : 'Enter your valid email address.'}
+                        : 'Enter your email prefix (e.g., sabbir for sabbir@iiuc.ac.bd).'}
                     </p>
                   </div>
               
