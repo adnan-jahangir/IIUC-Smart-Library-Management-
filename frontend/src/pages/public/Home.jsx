@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Search, BookOpen, GraduationCap, Library, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
@@ -22,6 +22,20 @@ const FeatureCard = ({ icon, title, description, delay }) => (
 );
 
 const Home = () => {
+  const [bookOfTheWeek, setBookOfTheWeek] = useState(null);
+
+  useEffect(() => {
+    fetch('http://localhost:5000/api/books')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.length > 0) {
+          // You could pick a random book or the first one. Let's pick the first one for now.
+          setBookOfTheWeek(data[0]);
+        }
+      })
+      .catch(err => console.error('Failed to fetch book of the week:', err));
+  }, []);
+
   return (
     <div className="w-full flex-col flex overflow-x-hidden">
       {/* Hero Section */}
@@ -114,17 +128,33 @@ const Home = () => {
                     <div className="text-sm text-slate-500">Highly recommended</div>
                   </div>
                 </div>
-                <div className="flex gap-6">
-                  <div className="w-32 h-44 bg-slate-200 rounded-xl overflow-hidden shadow-inner flex-shrink-0">
-                    <img src="https://images.unsplash.com/photo-1543002588-bfa74002ed7e?q=80&w=3000&auto=format&fit=crop" className="w-full h-full object-cover" alt="Book cover" />
+                
+                {bookOfTheWeek ? (
+                  <Link to={`/catalog/book/${bookOfTheWeek.customId}`} className="flex gap-6 group">
+                    <div className="w-32 h-44 bg-slate-200 rounded-xl overflow-hidden shadow-inner flex-shrink-0 relative">
+                      <img src={bookOfTheWeek.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={bookOfTheWeek.title} />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300"></div>
+                    </div>
+                    <div className="flex flex-col justify-center space-y-2 flex-1 py-2">
+                      <h4 className="font-bold text-slate-800 text-lg leading-tight group-hover:text-emerald-600 transition-colors line-clamp-2">{bookOfTheWeek.title}</h4>
+                      <p className="text-sm font-medium text-slate-500 line-clamp-1">{bookOfTheWeek.author}</p>
+                      <p className="text-xs text-slate-400 mt-1">{bookOfTheWeek.department} Department</p>
+                      <div className="mt-4 inline-flex px-3 py-1 bg-emerald-50 text-emerald-600 text-xs font-bold rounded-lg w-fit transition-colors group-hover:bg-emerald-100">
+                        {bookOfTheWeek.availableCopies > 0 ? 'Available Now' : 'Currently Issued'}
+                      </div>
+                    </div>
+                  </Link>
+                ) : (
+                  <div className="flex gap-6 animate-pulse">
+                    <div className="w-32 h-44 bg-slate-200 rounded-xl overflow-hidden shadow-inner flex-shrink-0"></div>
+                    <div className="flex flex-col justify-center space-y-3 flex-1">
+                      <div className="h-5 bg-slate-200 rounded w-full"></div>
+                      <div className="h-4 bg-slate-200 rounded w-3/4"></div>
+                      <div className="h-4 bg-slate-100 rounded w-1/2"></div>
+                      <div className="mt-4 h-6 bg-slate-100 rounded-lg w-24"></div>
+                    </div>
                   </div>
-                  <div className="flex flex-col justify-center space-y-3 flex-1">
-                    <div className="h-4 bg-slate-200 rounded w-full"></div>
-                    <div className="h-4 bg-slate-200 rounded w-3/4"></div>
-                    <div className="h-4 bg-slate-100 rounded w-1/2"></div>
-                    <div className="mt-4 inline-flex px-3 py-1 bg-emerald-50 text-emerald-600 text-xs font-bold rounded-lg w-fit">Available Now</div>
-                  </div>
-                </div>
+                )}
               </div>
 
               {/* Floating Element 1 */}
