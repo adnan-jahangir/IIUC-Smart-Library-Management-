@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BookOpen, Mail, Lock, User, ArrowRight, GraduationCap, UserRoundCheck, Hash } from 'lucide-react';
+import { BookOpen, Mail, Lock, User, ArrowRight, GraduationCap, UserRoundCheck, Hash, Phone } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 
 const Register = () => {
@@ -9,7 +9,7 @@ const Register = () => {
 
   const [formData, setFormData] = useState({
     name: '',
-    email: '',
+    phone: '',
     universityId: '',
     role: 'Student',
     password: ''
@@ -32,10 +32,14 @@ const Register = () => {
     setErrorMsg('');
 
     try {
+      const domain = formData.role === 'Student' ? '@ugrad.iiuc.ac.bd' : '@iiuc.ac.bd';
+      const constructedEmail = `${formData.universityId.toLowerCase()}${domain}`;
+      const payload = { ...formData, email: constructedEmail };
+
       const response = await fetch('http://localhost:5000/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       });
       
       const data = await response.json();
@@ -101,8 +105,8 @@ const Register = () => {
 
            <form onSubmit={handleSubmit} className="space-y-5">
               
-              <div className="grid grid-cols-2 gap-4">
-                 <div className="space-y-2 col-span-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div className="space-y-2">
                     <label className="text-xs sm:text-sm font-semibold text-slate-700">Full Name</label>
                     <div className="relative">
                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -111,25 +115,30 @@ const Register = () => {
                        <input name="name" value={formData.name} onChange={handleChange} required type="text" placeholder="Abu Reza Nadvi" className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all text-sm sm:text-base text-slate-800 font-medium" />
                     </div>
                  </div>
-              </div>
-
-              <div className="space-y-2">
-                 <label className="text-xs sm:text-sm font-semibold text-slate-700">University Email</label>
-                 <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                       <Mail className="w-5 h-5 text-slate-400" />
+                 
+                 <div className="space-y-2">
+                    <label className="text-xs sm:text-sm font-semibold text-slate-700">Phone (Optional)</label>
+                    <div className="relative">
+                       <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                          <Phone className="w-5 h-5 text-slate-400" />
+                       </div>
+                       <input name="phone" value={formData.phone} onChange={handleChange} type="tel" placeholder="01712345678" className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all text-sm sm:text-base text-slate-800 font-medium" />
                     </div>
-                    <input name="email" value={formData.email} onChange={handleChange} required type="email" placeholder="email@iiuc.ac.bd" className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all text-sm sm:text-base text-slate-800 font-medium" />
                  </div>
               </div>
 
+
+
                   <div className="space-y-2">
                     <label className="text-xs sm:text-sm font-semibold text-slate-700">University ID</label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <div className="relative flex">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10">
                         <Hash className="w-5 h-5 text-slate-400" />
                       </div>
-                      <input name="universityId" value={formData.universityId} onChange={handleChange} required type="text" placeholder={requiresDepartmentPrefix ? 'C230123' : '260123'} className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all text-sm sm:text-base text-slate-800 font-medium uppercase" />
+                      <input name="universityId" value={formData.universityId} onChange={handleChange} required type="text" placeholder={requiresDepartmentPrefix ? 'C230123' : '260123'} className="w-full pl-11 pr-2 py-3 bg-slate-50 border border-slate-200 border-r-0 rounded-l-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all text-sm sm:text-base text-slate-800 font-medium uppercase" />
+                      <div className="px-3 sm:px-4 py-3 bg-slate-100 border border-slate-200 rounded-r-xl text-slate-500 font-medium text-xs sm:text-sm flex items-center shrink-0">
+                        {formData.role === 'Student' ? '@ugrad.iiuc.ac.bd' : '@iiuc.ac.bd'}
+                      </div>
                     </div>
                     <p className="text-[11px] sm:text-xs text-slate-500">
                       {requiresDepartmentPrefix

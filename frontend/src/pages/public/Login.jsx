@@ -24,10 +24,13 @@ const Login = () => {
     setErrorMsg('');
     
     try {
+      const domain = role === 'student' ? '@ugrad.iiuc.ac.bd' : '@iiuc.ac.bd';
+      const fullEmail = email.includes('@') ? email : `${email.toLowerCase()}${domain}`;
+
       const response = await fetch('http://localhost:5000/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email: fullEmail, password })
       });
       
       const data = await response.json();
@@ -195,12 +198,15 @@ const Login = () => {
               </div>
 
               <div className="space-y-2">
-                 <label className="text-sm font-semibold text-slate-700">Email Address</label>
-                 <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                       <Mail className="w-5 h-5 text-slate-400" />
+                 <label className="text-sm font-semibold text-slate-700">University ID</label>
+                 <div className="relative flex">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10">
+                       <User className="w-5 h-5 text-slate-400" />
                     </div>
-                    <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@ugrad.iiuc.ac.bd" className="w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all text-sm sm:text-base text-slate-800 font-medium" />
+                    <input required type="text" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={role === 'student' ? 'C233114' : 'T123456'} className="w-full pl-11 pr-2 py-3.5 bg-slate-50 border border-slate-200 border-r-0 rounded-l-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all text-sm sm:text-base text-slate-800 font-medium uppercase" />
+                    <div className="px-3 sm:px-4 py-3.5 bg-slate-100 border border-slate-200 rounded-r-xl text-slate-500 font-medium text-xs sm:text-sm flex items-center shrink-0">
+                      {role === 'student' ? '@ugrad.iiuc.ac.bd' : '@iiuc.ac.bd'}
+                    </div>
                  </div>
               </div>
 

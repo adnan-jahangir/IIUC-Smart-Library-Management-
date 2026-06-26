@@ -66,7 +66,7 @@ const generateToken = (id, role) => {
 // @access  Public
 exports.registerUser = async (req, res) => {
   try {
-    const { name, email, password, role, universityId } = req.body;
+    const { name, email, phone, password, role, universityId } = req.body;
 
     if (!name || !email || !password || !role || !universityId) {
       return res.status(400).json({ message: 'Please fill in all fields' });
@@ -94,6 +94,7 @@ exports.registerUser = async (req, res) => {
     const user = await User.create({
       name,
       email,
+      phone,
       password: hashedPassword,
       customId,
       role, // 'Student', 'Teacher', 'Librarian', 'Admin'
