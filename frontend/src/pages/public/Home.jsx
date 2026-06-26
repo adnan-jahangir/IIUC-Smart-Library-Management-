@@ -93,19 +93,19 @@ const Home = () => {
               </div>
 
               {/* Quick specific stats */}
-              <div className="mt-12 flex items-center gap-8 border-t border-slate-200/60 pt-8">
+              <div className="mt-12 flex flex-wrap items-center gap-4 sm:gap-8 border-t border-slate-200/60 pt-8">
                 <div>
-                  <div className="text-3xl font-black text-slate-800">25k+</div>
+                  <div className="text-2xl sm:text-3xl font-black text-slate-800">25k+</div>
                   <div className="text-sm font-medium text-slate-500">Total Resources</div>
                 </div>
-                <div className="w-px h-8 bg-slate-200"></div>
+                <div className="hidden sm:block w-px h-8 bg-slate-200"></div>
                 <div>
-                  <div className="text-3xl font-black text-slate-800">12k+</div>
+                  <div className="text-2xl sm:text-3xl font-black text-slate-800">12k+</div>
                   <div className="text-sm font-medium text-slate-500">Active Students</div>
                 </div>
-                <div className="w-px h-8 bg-slate-200"></div>
+                <div className="hidden sm:block w-px h-8 bg-slate-200"></div>
                 <div>
-                  <div className="text-3xl font-black text-slate-800">4</div>
+                  <div className="text-2xl sm:text-3xl font-black text-slate-800">4</div>
                   <div className="text-sm font-medium text-slate-500">Librarians Ready</div>
                 </div>
               </div>
@@ -116,7 +116,7 @@ const Home = () => {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
-              className="relative hidden lg:block"
+              className="relative mt-12 lg:mt-0"
             >
               {/* Main App Mockup Card */}
               <div className="relative bg-white p-6 rounded-3xl shadow-2xl border border-slate-100 z-20 overflow-hidden transform rotate-2 hover:rotate-0 transition-transform duration-500">
@@ -167,7 +167,7 @@ const Home = () => {
               <motion.div 
                 animate={{ y: [0, -15, 0] }}
                 transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute -top-10 -right-10 bg-white p-4 rounded-2xl shadow-xl border border-slate-100 z-30 flex items-center gap-3 backdrop-blur-md bg-white/90"
+                className="absolute -top-10 -right-10 hidden md:flex p-4 rounded-2xl shadow-xl border border-slate-100 z-30 items-center gap-3 backdrop-blur-md bg-white/90"
               >
                 <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
                   <GraduationCap size={20} />
@@ -182,7 +182,7 @@ const Home = () => {
               <motion.div 
                 animate={{ y: [0, 15, 0] }}
                 transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-                className="absolute -bottom-8 -left-12 bg-white p-4 rounded-2xl shadow-xl border border-slate-100 z-30 flex items-center gap-3 backdrop-blur-md bg-slate-900"
+                className="absolute -bottom-8 -left-12 hidden md:flex p-4 rounded-2xl shadow-xl border border-slate-100 z-30 items-center gap-3 backdrop-blur-md bg-slate-900"
               >
                 <div className="w-10 h-10 bg-emerald-500/20 rounded-full flex items-center justify-center text-emerald-400">
                   <ShieldCheck size={20} />
