@@ -9,6 +9,7 @@ const reservationSchema = new mongoose.Schema({
     enum: ['Waiting', 'Notified', 'Fulfilled', 'Canceled'], 
     default: 'Waiting' 
   },
+  priorityLevel: { type: Number, default: 0 },
   queuePosition: { type: Number, required: true, default: 1 }
 }, { timestamps: true });
 

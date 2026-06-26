@@ -11,6 +11,8 @@ const userSchema = new mongoose.Schema({
     enum: ['Student', 'Teacher', 'Librarian', 'Admin'], 
     required: true 
   },
+  designation: { type: String },
+  priorityLevel: { type: Number, default: 0 },
   status: { 
     type: String, 
     enum: ['Active', 'Suspended'], 

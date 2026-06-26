@@ -66,7 +66,7 @@ const generateToken = (id, role) => {
 // @access  Public
 exports.registerUser = async (req, res) => {
   try {
-    const { name, email, phone, password, role, universityId } = req.body;
+    const { name, email, phone, password, role, universityId, designation } = req.body;
 
     if (!name || !email || !password || !role || !universityId) {
       return res.status(400).json({ message: 'Please fill in all fields' });
@@ -90,6 +90,26 @@ exports.registerUser = async (req, res) => {
     // Use the department-coded University ID as customId.
     const customId = universityIdResult.value;
 
+    // Calculate priority level
+    let priorityLevel = 0;
+    if (role === 'Teacher') {
+      const designationWeights = {
+        'Professor': 1005,
+        'Associate Professor': 1004,
+        'Assistant Professor': 1003,
+        'Lecturer': 1002,
+        'Adjunct Lecturer': 1001
+      };
+      priorityLevel = designationWeights[designation] || 1000;
+    } else if (role === 'Student' && universityIdResult.prefix) {
+      const idAfterPrefix = customId.substring(universityIdResult.prefix.length);
+      const batchCodeMatch = idAfterPrefix.match(/^\d{3}/);
+      if (batchCodeMatch) {
+        const batchCode = parseInt(batchCodeMatch[0], 10);
+        priorityLevel = 1000 - batchCode;
+      }
+    }
+
     // Create user
     const user = await User.create({
       name,
@@ -98,6 +118,8 @@ exports.registerUser = async (req, res) => {
       password: hashedPassword,
       customId,
       role, // 'Student', 'Teacher', 'Librarian', 'Admin'
+      designation,
+      priorityLevel
     });
 
     if (user) {

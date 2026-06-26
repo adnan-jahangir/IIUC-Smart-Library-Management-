@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BookOpen, Mail, Lock, User, ArrowRight, GraduationCap, UserRoundCheck, Hash, Phone } from 'lucide-react';
+import { BookOpen, Mail, Lock, User, ArrowRight, GraduationCap, UserRoundCheck, Hash, Phone, Briefcase } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 
 const Register = () => {
@@ -12,6 +12,7 @@ const Register = () => {
     phone: '',
     universityId: '',
     role: 'Student',
+    designation: 'Lecturer',
     password: ''
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -186,6 +187,27 @@ const Register = () => {
                     </div>
                  </div>
               </div>
+
+               {formData.role === 'Teacher' && (
+                 <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <label className="text-xs sm:text-sm font-semibold text-slate-700">Designation (Priority)</label>
+                    <div className="relative">
+                       <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                          <Briefcase className="w-5 h-5 text-slate-400" />
+                       </div>
+                       <select name="designation" value={formData.designation} onChange={handleChange} className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-sm sm:text-base text-slate-800 font-medium appearance-none">
+                         <option value="Adjunct Lecturer">Adjunct Lecturer</option>
+                         <option value="Lecturer">Lecturer</option>
+                         <option value="Assistant Professor">Assistant Professor</option>
+                         <option value="Associate Professor">Associate Professor</option>
+                         <option value="Professor">Professor</option>
+                       </select>
+                       <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                         <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                       </div>
+                    </div>
+                 </div>
+               )}
 
               <div className="space-y-2">
                  <label className="text-xs sm:text-sm font-semibold text-slate-700">Create Password</label>

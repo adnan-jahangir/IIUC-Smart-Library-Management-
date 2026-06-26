@@ -6,7 +6,7 @@ const recalcQueuePositions = async (bookId) => {
   const waitingReservations = await Reservation.find({
     book: bookId,
     status: 'Waiting'
-  }).sort({ createdAt: 1 });
+  }).sort({ priorityLevel: -1, createdAt: 1 });
 
   for (let index = 0; index < waitingReservations.length; index += 1) {
     const reservation = waitingReservations[index];
@@ -61,16 +61,17 @@ exports.createReservation = async (req, res) => {
       return res.status(400).json({ message: 'You already have an active reservation for this book.' });
     }
 
-    const queuePosition =
-      (await Reservation.countDocuments({ book: book._id, status: 'Waiting' })) + 1;
-
     const reservation = await Reservation.create({
       user: userId,
       book: book._id,
-      queuePosition
+      priorityLevel: user.priorityLevel || 0,
+      queuePosition: 999999 // Placeholder, will be recalculated immediately
     });
 
-    res.status(201).json({ message: 'Reservation submitted successfully.', reservation });
+    await recalcQueuePositions(book._id);
+    const updatedReservation = await Reservation.findById(reservation._id);
+
+    res.status(201).json({ message: 'Reservation submitted successfully.', reservation: updatedReservation });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error: ' + error.message, error: error.message });
