@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BookOpen, Mail, Lock, ArrowRight, GraduationCap, UserRoundCheck, Briefcase } from 'lucide-react';
+import { BookOpen, Mail, Lock, ArrowRight, GraduationCap, UserRoundCheck, Briefcase, User } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 
 const Login = () => {
