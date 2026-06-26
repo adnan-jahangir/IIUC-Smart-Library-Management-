@@ -61,10 +61,10 @@ const LibrarianLayout = () => {
               to={link.path}
               onClick={() => setIsMobileMenuOpen(false)}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium ${
-                isActive ? 'bg-amber-500 text-slate-900 shadow-sm' : 'hover:bg-slate-800 hover:text-amber-400'
+                isActive ? 'bg-amber-500 text-slate-900 shadow-sm' : 'text-white hover:bg-slate-800 hover:text-amber-400'
               }`}
             >
-              <div className={isActive ? 'text-slate-900' : 'text-slate-400'}>{link.icon}</div>
+              <div className={isActive ? 'text-slate-900' : 'text-white'}>{link.icon}</div>
               {link.name}
             </Link>
           );
@@ -72,11 +72,11 @@ const LibrarianLayout = () => {
       </nav>
 
       <div className="p-4 border-t border-slate-800 mt-auto">
-        <Link to="/librarian/profile" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+        <Link to="/librarian/profile" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 transition-colors text-white" onClick={() => setIsMobileMenuOpen(false)}>
           <User className="w-5 h-5" />
           <span className="font-medium">My Profile</span>
         </Link>
-        <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-rose-400 transition-colors mt-1">
+        <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-rose-400 transition-colors mt-1 text-white">
           <ArrowLeft className="w-5 h-5" />
           <span className="font-medium">Logout / Home</span>
         </button>
