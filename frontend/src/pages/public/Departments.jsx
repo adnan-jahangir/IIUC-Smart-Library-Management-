@@ -12,46 +12,46 @@ const faculties = [
   {
     name: 'Faculty of Science and Engineering',
     departments: [
-      'Computer Science and Engineering (CSE)',
-      'Computer and Communication Engineering (CCE)',
-      'Electrical and Electronic Engineering (EEE)',
-      'Electronic and Telecommunication Engineering (ETE)',
-      'Civil Engineering (CE)',
-      'Pharmacy'
+      { name: 'Computer Science and Engineering (CSE)', students: '2,500', teachers: '60' },
+      { name: 'Computer and Communication Engineering (CCE)', students: '800', teachers: '25' },
+      { name: 'Electrical and Electronic Engineering (EEE)', students: '1,800', teachers: '45' },
+      { name: 'Electronic and Telecommunication Engineering (ETE)', students: '600', teachers: '20' },
+      { name: 'Civil Engineering (CE)', students: '1,000', teachers: '30' },
+      { name: 'Pharmacy', students: '1,200', teachers: '35' }
     ]
   },
   {
     name: 'Faculty of Shariah and Islamic Studies',
     departments: [
-      'Quranic Sciences and Islamic Studies (QSIS)',
-      'Dawah & Islamic Studies (DIS)',
-      'Science of Hadith and Islamic Studies (SHIS)'
+      { name: 'Quranic Sciences and Islamic Studies (QSIS)', students: '500', teachers: '18' },
+      { name: 'Dawah & Islamic Studies (DIS)', students: '400', teachers: '15' },
+      { name: 'Science of Hadith and Islamic Studies (SHIS)', students: '300', teachers: '12' }
     ]
   },
   {
     name: 'Faculty of Arts and Humanities',
     departments: [
-      'English Language and Literature (ELL)',
-      'Arabic Language and Literature (ALL)',
-      'Library and Information Science (LIS)'
+      { name: 'English Language and Literature (ELL)', students: '800', teachers: '25' },
+      { name: 'Arabic Language and Literature (ALL)', students: '400', teachers: '15' },
+      { name: 'Library and Information Science (LIS)', students: '200', teachers: '10' }
     ]
   },
   {
     name: 'Faculty of Business Studies',
     departments: [
-      'Business Administration (BBA/MBA)'
+      { name: 'Business Administration (BBA/MBA)', students: '2,200', teachers: '55' }
     ]
   },
   {
     name: 'Faculty of Law',
     departments: [
-      'Law (LLB/LLM)'
+      { name: 'Law (LLB/LLM)', students: '900', teachers: '30' }
     ]
   },
   {
     name: 'Faculty of Social Science',
     departments: [
-      'Economics & Banking (EB)'
+      { name: 'Economics & Banking (EB)', students: '1,200', teachers: '25' }
     ]
   }
 ];
@@ -99,9 +99,19 @@ const Departments = () => {
               </h3>
               <ul className="space-y-4">
                 {faculty.departments.map((dept, deptIdx) => (
-                  <li key={deptIdx} className="flex items-start gap-3">
+                  <li key={deptIdx} className="flex items-start gap-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
                     <Milestone className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
-                    <span className="text-slate-600 font-medium">{dept}</span>
+                    <div className="flex-1">
+                      <span className="text-slate-800 font-bold block mb-1">{dept.name}</span>
+                      <div className="flex items-center gap-4 text-xs font-medium text-slate-500">
+                        <span className="flex items-center gap-1">
+                          <Users className="w-3.5 h-3.5 text-indigo-400" /> {dept.students} Students
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <UserCheck className="w-3.5 h-3.5 text-emerald-400" /> {dept.teachers} Teachers
+                        </span>
+                      </div>
+                    </div>
                   </li>
                 ))}
               </ul>
