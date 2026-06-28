@@ -56,25 +56,39 @@ async function getChatCompletion(messages, options = {}) {
   const model = options.model || DEFAULT_MODEL;
   const temperature = options.temperature ?? 0.7;
 
-  const payload = {
-    model,
-    messages,
-    temperature,
-    max_tokens: options.maxTokens || 4096,
-  };
+  let response;
+  let currentModel = model;
+  
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const payload = {
+      model: currentModel,
+      messages,
+      temperature,
+      max_tokens: options.maxTokens || 4096,
+    };
 
-  if (options.response_format?.type === 'json_object') {
-    payload.response_format = options.response_format;
+    if (options.response_format?.type === 'json_object') {
+      payload.response_format = options.response_format;
+    }
+
+    response = await fetch(GROQ_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify(payload)
+    });
+
+    // If rate limited on the default model, try the lighter fallback model
+    if (response.status === 429 && currentModel === DEFAULT_MODEL) {
+      console.warn(`[Groq API] 429 Rate Limit on ${currentModel}. Falling back to llama-3.1-8b-instant...`);
+      currentModel = 'llama-3.1-8b-instant';
+      continue;
+    }
+    
+    break;
   }
-
-  const response = await fetch(GROQ_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify(payload)
-  });
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -107,21 +121,34 @@ async function getStreamingChatCompletion(messages, res, options = {}) {
   res.setHeader('X-Accel-Buffering', 'no'); // for nginx proxies
   res.flushHeaders();
 
-  const payload = {
-    model,
-    messages,
-    temperature,
-    stream: true
-  };
+  let response;
+  let currentModel = model;
 
-  const response = await fetch(GROQ_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify(payload)
-  });
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const payload = {
+      model: currentModel,
+      messages,
+      temperature,
+      stream: true
+    };
+
+    response = await fetch(GROQ_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (response.status === 429 && currentModel === DEFAULT_MODEL) {
+      console.warn(`[Groq API Streaming] 429 Rate Limit on ${currentModel}. Falling back to llama-3.1-8b-instant...`);
+      currentModel = 'llama-3.1-8b-instant';
+      continue;
+    }
+    
+    break;
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
