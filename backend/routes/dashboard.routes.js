@@ -111,7 +111,7 @@ router.get('/librarian', protect, restrictTo('Librarian', 'Admin'), async (req, 
                 id: pr._id,
                 studentId: pr.user?.customId || 'Unknown',
                 title: pr.book?.title || 'Unknown',
-                date: pr.createdAt.toLocaleString(),
+                date: pr.createdAt,
                 status: pr.status
             }))
         });

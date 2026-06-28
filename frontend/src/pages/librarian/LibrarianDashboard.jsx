@@ -474,7 +474,7 @@ const LibrarianDashboard = () => {
                   <tr key={req.id} className="hover:bg-slate-50">
                     <td className="py-4 px-4 font-semibold text-slate-800">{req.studentId}</td>
                     <td className="py-4 px-4">{req.title}</td>
-                    <td className="py-4 px-4 text-xs font-semibold">{req.date}</td>
+                    <td className="py-4 px-4 text-xs font-semibold">{new Date(req.date).toLocaleString()}</td>
                     <td className="py-4 px-4 text-right">
                       {req.status === 'Pending' ? (
                         <div className="flex justify-end gap-2">
