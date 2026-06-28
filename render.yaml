@@ -1,0 +1,30 @@
+services:
+  # Backend Web Service
+  - type: web
+    name: iiuc-smart-library-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 5000
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: XAI_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+
+  # Frontend Static Site
+  - type: web
+    name: iiuc-smart-library-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://iiuc-smart-library-backend.onrender.com

@@ -1,29 +1,18 @@
-const { GoogleGenAI } = require('@google/genai');
+const XAI_API_URL = 'https://api.x.ai/v1/responses';
 
 // ---------------------------------------------------------------------------
-// Lazy-initialised Gemini client
+// Lazy-initialised Grok client config
 // ---------------------------------------------------------------------------
-let _client = null;
-
-function getClient() {
-  if (_client) return _client;
-  const apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || '';
+async function getClient() {
+  const apiKey = process.env.XAI_API_KEY || process.env.GROK_API_KEY || '';
   if (!apiKey) {
-    throw new Error(
-      'Missing API Key. Add it to your backend .env file.'
-    );
+    throw new Error('Missing XAI_API_KEY. Add it to your backend .env file.');
   }
-  _client = new GoogleGenAI({ apiKey }); 
-  return _client;
+  return { apiKey, baseUrl: 'https://api.x.ai/v1' };
 }
 
-const DEFAULT_MODEL = 'gemini-3.1-flash-lite';
-const MODELS_FALLBACK = [
-  'gemini-3.1-flash-lite',
-  'gemini-2.5-flash-lite',
-  'gemini-2.5-flash',
-  'gemini-flash-lite-latest'
-];
+const DEFAULT_MODEL = 'grok-4.3';
+const MODELS_FALLBACK = ['grok-4.3'];
 
 // ---------------------------------------------------------------------------
 // Build the library-assistant system prompt (role-aware)
@@ -49,87 +38,87 @@ function buildSystemPrompt(role) {
   ].join('\n');
 }
 
-// Helper to convert OpenAI messages array to Gemini contents array + systemInstruction
-function parseMessages(messages) {
-  let systemInstruction = undefined;
-  const contents = [];
+// Helper to extract text from a Grok response object
+function extractGrokText(data) {
+  const assistantOutput = data?.output?.find(item => item.role === 'assistant');
+  if (!assistantOutput || !Array.isArray(assistantOutput.content)) {
+    return '';
+  }
+  return assistantOutput.content
+    .filter(c => c.type === 'output_text')
+    .map(c => c.text)
+    .join('');
+}
 
-  for (const msg of messages) {
-    if (msg.role === 'system') {
-      systemInstruction = systemInstruction ? systemInstruction + '\n' + msg.content : msg.content;
-    } else {
-      contents.push({
-        role: msg.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: msg.content }]
-      });
+// Helper to extract text from a Grok stream chunk
+function extractGrokChunkText(json) {
+  if (!json) return '';
+  if (json.output) {
+    const assistantOutput = json.output.find(item => item.role === 'assistant');
+    if (assistantOutput && Array.isArray(assistantOutput.content)) {
+      return assistantOutput.content
+        .filter(c => c.type === 'output_text')
+        .map(c => c.text)
+        .join('');
     }
   }
-
-  return { systemInstruction, contents };
+  if (json.choices?.[0]?.delta?.content) {
+    return json.choices[0].delta.content;
+  }
+  if (json.delta?.text) {
+    return json.delta.text;
+  }
+  return '';
 }
 
 // ---------------------------------------------------------------------------
 // getChatCompletion — non-streaming
 // ---------------------------------------------------------------------------
 async function getChatCompletion(messages, options = {}) {
-  const client = getClient();
-  const models = options.model ? [options.model] : MODELS_FALLBACK;
+  const { apiKey } = await getClient();
+  const model = options.model || DEFAULT_MODEL;
   const temperature = options.temperature ?? 0.7;
-  const maxTokens = options.maxTokens ?? 1024;
 
-  const { systemInstruction, contents } = parseMessages(messages);
+  const payload = {
+    model,
+    input: messages,
+    temperature,
+  };
 
-  let lastError;
-  for (const model of models) {
-    try {
-      const response = await client.models.generateContent({
-        model,
-        contents,
-        config: {
-          systemInstruction,
-          temperature,
-          maxOutputTokens: maxTokens,
-          ...(options.response_format?.type === 'json_object'
-            ? { responseMimeType: "application/json" }
-            : { tools: [{ googleSearch: {} }] }
-          ),
-        }
-      });
-
-      const reply = response.text || '';
-      const usage = {
-        prompt_tokens: response.usageMetadata?.promptTokenCount || 0,
-        completion_tokens: response.usageMetadata?.candidatesTokenCount || 0,
-        total_tokens: response.usageMetadata?.totalTokenCount || 0,
-      };
-      const sources = response.candidates?.[0]?.groundingMetadata || null;
-
-      return { reply, usage, sources };
-    } catch (error) {
-      console.warn(`Model ${model} failed:`, error.message);
-      lastError = error;
-      if (error.status === 404 || error.status === 429 || error.message.toLowerCase().includes('quota') || error.message.toLowerCase().includes('not found') || error.message.toLowerCase().includes('unavailable') || error.status === 503) {
-        continue;
-      }
-      throw error;
-    }
+  if (options.response_format?.type === 'json_object') {
+    payload.response_format = options.response_format;
   }
 
-  console.error("Gemini API Error (all models failed):", lastError.message);
-  const err = new Error(lastError.message);
-  if (lastError.status === 401 || lastError.message.toLowerCase().includes('api key')) err.status = 401;
-  if (lastError.status === 429 || lastError.message.toLowerCase().includes('quota')) err.status = 429;
-  throw err;
+  const response = await fetch(XAI_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`Grok API error: ${response.status} - ${errorText}`);
+    throw new Error(`Grok API Error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  const reply = extractGrokText(data);
+  const usage = data.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+  const sources = data.sources || null;
+
+  return { reply, usage, sources };
 }
 
 // ---------------------------------------------------------------------------
 // getStreamingChatCompletion — Server-Sent Events
 // ---------------------------------------------------------------------------
 async function getStreamingChatCompletion(messages, res, options = {}) {
-  const client = getClient();
-  const models = options.model ? [options.model] : MODELS_FALLBACK;
+  const { apiKey } = await getClient();
+  const model = options.model || DEFAULT_MODEL;
   const temperature = options.temperature ?? 0.7;
-  const maxTokens = options.maxTokens ?? 1024;
 
   // SSE headers
   res.setHeader('Content-Type', 'text/event-stream');
@@ -138,70 +127,74 @@ async function getStreamingChatCompletion(messages, res, options = {}) {
   res.setHeader('X-Accel-Buffering', 'no'); // for nginx proxies
   res.flushHeaders();
 
-  const { systemInstruction, contents } = parseMessages(messages);
+  const payload = {
+    model,
+    input: messages,
+    temperature,
+    stream: true
+  };
 
-  let lastError;
-  for (const model of models) {
-    try {
-      let fullReply = '';
-      let usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+  const response = await fetch(XAI_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify(payload)
+  });
 
-      const stream = await client.models.generateContentStream({
-        model,
-        contents,
-        config: {
-          systemInstruction,
-          temperature,
-          maxOutputTokens: maxTokens,
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`Grok API Streaming error: ${response.status} - ${errorText}`);
+    res.write(`data: ${JSON.stringify({ error: `Grok API Error: ${response.status}` })}\n\n`);
+    res.end();
+    throw new Error(`Grok Streaming API Error: ${response.status} - ${errorText}`);
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let fullReply = '';
+  let usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+
+  for await (const chunk of response.body) {
+    buffer += decoder.decode(chunk, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop(); // Keep the last incomplete line
+
+    for (const line of lines) {
+      const cleanLine = line.trim();
+      if (!cleanLine) continue;
+      if (cleanLine.startsWith('data:')) {
+        const dataStr = cleanLine.slice(5).trim();
+        if (dataStr === '[DONE]') {
+          break;
         }
-      });
+        try {
+          const json = JSON.parse(dataStr);
+          
+          if (json.usage) {
+            usage = json.usage;
+          }
 
-      for await (const chunk of stream) {
-        if (chunk.usageMetadata) {
-          usage = {
-            prompt_tokens: chunk.usageMetadata.promptTokenCount || 0,
-            completion_tokens: chunk.usageMetadata.candidatesTokenCount || 0,
-            total_tokens: chunk.usageMetadata.totalTokenCount || 0,
-          };
-        }
-        const delta = chunk.text;
-        if (delta) {
-          fullReply += delta;
-          res.write(`data: ${JSON.stringify({ token: delta })}\n\n`);
+          const text = extractGrokChunkText(json);
+          if (text) {
+            fullReply += text;
+            res.write(`data: ${JSON.stringify({ token: text })}\n\n`);
+          }
+        } catch (err) {
+          // ignore parsing error for incomplete JSON
         }
       }
-
-      // Send done event with usage
-      res.write(
-        `data: ${JSON.stringify({ done: true, usage, fullReply })}\n\n`
-      );
-      res.end();
-
-      return { reply: fullReply, usage };
-    } catch (error) {
-      console.warn(`Streaming Model ${model} failed:`, error.message);
-      lastError = error;
-      if (error.status === 404 || error.status === 429 || error.message.toLowerCase().includes('quota') || error.message.toLowerCase().includes('not found') || error.message.toLowerCase().includes('unavailable') || error.status === 503) {
-        continue;
-      }
-      break;
     }
   }
 
-  console.error("Gemini API Streaming Error:", lastError.message);
-  const err = new Error(lastError.message);
-  if (lastError.message.toLowerCase().includes('api key')) err.status = 401;
-  if (lastError.message.toLowerCase().includes('quota')) err.status = 429;
-
-  const errorMsg =
-    err.status === 429
-      ? 'The AI service is temporarily overloaded. Please try again in a moment.'
-      : 'An error occurred while generating the response.';
-
-  res.write(`data: ${JSON.stringify({ error: errorMsg })}\n\n`);
+  // Send done event with usage
+  res.write(
+    `data: ${JSON.stringify({ done: true, usage, fullReply })}\n\n`
+  );
   res.end();
 
-  throw err;
+  return { reply: fullReply, usage };
 }
 
 module.exports = {

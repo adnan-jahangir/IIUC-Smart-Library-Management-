@@ -1,29 +1,52 @@
-const { GoogleGenAI } = require('@google/genai');
 const Book = require('../models/Book');
 const AiUsageLog = require('../models/AiUsageLog');
 
-// ---------------------------------------------------------------------------
-// Gemini client (lazy-initialised so the module can load without a key)
-// ---------------------------------------------------------------------------
-let _ai = null;
+const XAI_API_URL = 'https://api.x.ai/v1/responses';
+const DEFAULT_MODEL = 'grok-4.3';
+const MODELS_FALLBACK = ['grok-4.3'];
 
-function getAiClient() {
-  if (_ai) return _ai;
-  const apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || '';
+async function callGrokResponses(messages, options = {}) {
+  const apiKey = process.env.XAI_API_KEY || process.env.GROK_API_KEY || '';
   if (!apiKey) {
-    throw new Error('Missing API key. Set OPENAI_API_KEY or GEMINI_API_KEY in the backend .env file.');
+    throw new Error('Missing XAI_API_KEY. Add it to your backend .env file.');
   }
-  _ai = new GoogleGenAI({ apiKey });
-  return _ai;
-}
 
-const DEFAULT_MODEL = 'gemini-3.1-flash-lite';
-const MODELS_FALLBACK = [
-  'gemini-3.1-flash-lite',
-  'gemini-2.5-flash-lite',
-  'gemini-2.5-flash',
-  'gemini-flash-lite-latest'
-];
+  const payload = {
+    model: options.model || DEFAULT_MODEL,
+    input: messages,
+    temperature: options.temperature ?? 0.7,
+  };
+
+  if (options.response_format?.type === 'json_object') {
+    payload.response_format = options.response_format;
+  }
+
+  const response = await fetch(XAI_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`Grok API error: ${response.status} - ${errorText}`);
+    throw new Error(`Grok API Error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  const assistantOutput = data.output?.find(item => item.role === 'assistant');
+  const reply = assistantOutput?.content
+    ?.filter(c => c.type === 'output_text')
+    ?.map(c => c.text)
+    ?.join('') || '';
+
+  const usage = data.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+
+  return { reply, usage };
+}
 
 // ---------------------------------------------------------------------------
 // Helper: format book catalog for system prompt
@@ -62,78 +85,56 @@ function buildSystemPrompt(availableBooks) {
 }
 
 // ---------------------------------------------------------------------------
-// Helper: build Gemini contents array from conversation history
+// Helper: build Grok messages array from conversation history
 // ---------------------------------------------------------------------------
-function buildGeminiContents(conversationHistory, userMessage) {
-  const contents = [];
+function buildGrokMessages(conversationHistory, userMessage, systemPrompt) {
+  const messages = [];
+  if (systemPrompt) {
+    messages.push({ role: 'system', content: systemPrompt });
+  }
 
   const history = Array.isArray(conversationHistory) ? conversationHistory : [];
   for (const msg of history) {
     if (!msg || typeof msg.content !== 'string' || !msg.content.trim()) continue;
-    const role = msg.role === 'assistant' ? 'model' : 'user';
-    contents.push({ role, parts: [{ text: msg.content.trim() }] });
+    const role = msg.role === 'assistant' ? 'assistant' : 'user';
+    messages.push({ role, content: msg.content.trim() });
   }
 
   const trimmedUserMessage = typeof userMessage === 'string' ? userMessage.trim() : '';
   if (trimmedUserMessage) {
-    contents.push({ role: 'user', parts: [{ text: trimmedUserMessage }] });
+    messages.push({ role: 'user', content: trimmedUserMessage });
   }
 
-  return contents;
+  return messages;
 }
 
 // ---------------------------------------------------------------------------
-// Helper: send chat to Gemini
+// Helper: send chat to Grok
 // ---------------------------------------------------------------------------
 async function sendChatToGemini(conversationHistory, userMessage, availableBooks, options = {}) {
-  const ai = getAiClient();
   const systemPrompt = buildSystemPrompt(availableBooks);
-  const contents = buildGeminiContents(conversationHistory, userMessage);
+  const messages = buildGrokMessages(conversationHistory, userMessage, systemPrompt);
   const temperature = options.deterministic ? 0.0 : 0.7;
 
-  let lastError;
-  for (const model of MODELS_FALLBACK) {
-    try {
-      const response = await ai.models.generateContent({
-        model,
-        contents,
-        config: {
-          systemInstruction: systemPrompt,
-          temperature,
-          maxOutputTokens: 1024,
-          tools: [{ googleSearch: {} }],
-        }
-      });
-
-      const reply = response.text || '';
-      if (!reply) {
-        throw new Error('Gemini request succeeded but returned no assistant text.');
-      }
-
-      return {
-        reply,
-        modelUsed: model,
-        usage: {
-          prompt_tokens: response.usageMetadata?.promptTokenCount || 0,
-          completion_tokens: response.usageMetadata?.candidatesTokenCount || 0,
-          total_tokens: response.usageMetadata?.totalTokenCount || 0,
-        },
-        sources: response.candidates?.[0]?.groundingMetadata || null
-      };
-    } catch (error) {
-      console.warn(`Chat model ${model} failed:`, error.message);
-      lastError = error;
-      if (error.status === 404 || error.status === 429 || error.message.toLowerCase().includes('quota') || error.message.toLowerCase().includes('not found') || error.message.toLowerCase().includes('unavailable') || error.status === 503) {
-        continue;
-      }
-      throw error;
-    }
+  try {
+    const result = await callGrokResponses(messages, { temperature });
+    return {
+      reply: result.reply,
+      modelUsed: DEFAULT_MODEL,
+      usage: {
+        prompt_tokens: result.usage.prompt_tokens || 0,
+        completion_tokens: result.usage.completion_tokens || 0,
+        total_tokens: result.usage.total_tokens || 0,
+      },
+      sources: null
+    };
+  } catch (error) {
+    console.error('Chat Grok request failed:', error.message);
+    const err = new Error(error.message);
+    if (error.message.toLowerCase().includes('api key')) err.status = 401;
+    if (error.message.toLowerCase().includes('quota')) err.status = 429;
+    throw err;
   }
-
-  const err = new Error(lastError.message);
-  if (lastError.message.toLowerCase().includes('api key')) err.status = 401;
-  if (lastError.message.toLowerCase().includes('quota')) err.status = 429;
-  throw err;
 }
 
 // ---------------------------------------------------------------------------
@@ -379,44 +380,22 @@ exports.summarize = async (req, res) => {
       return res.status(400).json({ message: 'Text is required for summarization' });
     }
 
-    const ai = getAiClient();
-    let lastError;
-    for (const model of MODELS_FALLBACK) {
-      try {
-        const response = await ai.models.generateContent({
-          model,
-          contents: `Please summarize the following:\n\n${textToSummarize}`,
-          config: {
-            systemInstruction: 'You are a helpful academic assistant. Provide clear, concise summaries of the given text. Focus on key points and main ideas.',
-            temperature: 0.3,
-            maxOutputTokens: 512,
-          }
-        });
+    const messages = [
+      { role: 'system', content: 'You are a helpful academic assistant. Provide clear, concise summaries of the given text. Focus on key points and main ideas.' },
+      { role: 'user', content: `Please summarize the following:\n\n${textToSummarize}` }
+    ];
 
-        const summary = response.text || 'No summary generated.';
-        const usage = {
-          prompt_tokens: response.usageMetadata?.promptTokenCount || 0,
-          completion_tokens: response.usageMetadata?.candidatesTokenCount || 0,
-          total_tokens: response.usageMetadata?.totalTokenCount || 0,
-        };
-
-        await logAiUsage(req.user.id, 'summarize', usage, model);
-
-        return res.json({ summary });
-      } catch (error) {
-        console.warn(`Summarize model ${model} failed:`, error.message);
-        lastError = error;
-        if (error.status === 404 || error.status === 429 || error.message.toLowerCase().includes('quota') || error.message.toLowerCase().includes('not found') || error.message.toLowerCase().includes('unavailable') || error.status === 503) {
-          continue;
-        }
-        throw error;
-      }
+    try {
+      const { reply, usage } = await callGrokResponses(messages, { temperature: 0.3 });
+      await logAiUsage(req.user.id, 'summarize', usage, DEFAULT_MODEL);
+      return res.json({ summary: reply });
+    } catch (error) {
+      console.error('Summarize Grok request failed:', error.message);
+      const err = new Error(error.message);
+      if (error.message.toLowerCase().includes('api key')) err.status = 401;
+      if (error.message.toLowerCase().includes('quota')) err.status = 429;
+      throw err;
     }
-
-    const err = new Error(lastError.message);
-    if (lastError.message.toLowerCase().includes('api key')) err.status = 401;
-    if (lastError.message.toLowerCase().includes('quota')) err.status = 429;
-    throw err;
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'AI summarize error', error: error.message });
@@ -660,36 +639,24 @@ The output MUST be a valid JSON object matching the exact structure below, witho
   ]
 }`;
 
-    const ai = getAiClient();
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: `Generate a JSON overview for "${book.title}" by ${book.author} based on the system instruction.` }
+    ];
+
     let replyText = '';
-    let lastError;
+    let totalUsage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
 
-    for (const model of MODELS_FALLBACK) {
-      try {
-        const response = await ai.models.generateContent({
-          model,
-          contents: `Generate a JSON overview for "${book.title}" by ${book.author} based on the system instruction.`,
-          config: {
-            systemInstruction: systemPrompt,
-            temperature: 0.3,
-            maxOutputTokens: 2048,
-            responseMimeType: "application/json"
-          }
-        });
-        replyText = response.text || '';
-        break;
-      } catch (err) {
-        console.warn(`Book insight model ${model} failed:`, err.message);
-        lastError = err;
-        if (err.status === 404 || err.status === 429 || err.message.toLowerCase().includes('quota') || err.message.toLowerCase().includes('not found') || err.message.toLowerCase().includes('unavailable') || err.status === 503) {
-          continue;
-        }
-        throw err;
-      }
-    }
-
-    if (!replyText) {
-      throw new Error(lastError ? lastError.message : 'AI generation failed');
+    try {
+      const { reply, usage } = await callGrokResponses(messages, { 
+        temperature: 0.3, 
+        response_format: { type: "json_object" } 
+      });
+      replyText = reply;
+      totalUsage = usage;
+    } catch (err) {
+      console.error('Book insight Grok request failed:', err.message);
+      return res.status(502).json({ message: 'Failed to generate book insights.' });
     }
 
     let parsed;
@@ -707,7 +674,7 @@ The output MUST be a valid JSON object matching the exact structure below, witho
     }
 
     // Log usage
-    await logAiUsage(req.user.id, 'book-insight', { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 });
+    await logAiUsage(req.user.id, 'book-insight', totalUsage, DEFAULT_MODEL);
 
     return res.json({ insight: parsed });
   } catch (error) {

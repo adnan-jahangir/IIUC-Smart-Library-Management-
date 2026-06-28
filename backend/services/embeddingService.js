@@ -1,6 +1,6 @@
 const { getClient } = require('./openaiService');
 
-const EMBEDDING_MODEL = 'gemini-embedding-001';
+const EMBEDDING_MODEL = 'grok-embedding-small';
 const OUTPUT_DIMENSIONS = 768;
 
 // ---------------------------------------------------------------------------
@@ -57,18 +57,32 @@ function chunkText(text, chunkSizeWords = 400, overlapWords = 50) {
  * @returns {Promise<number[]>} Embedding vector (768 dimensions)
  */
 async function generateEmbedding(text) {
-  const client = getClient();
+  const { apiKey } = await getClient();
 
-  const result = await client.models.embedContent({
-    model: EMBEDDING_MODEL,
-    contents: text,
-    config: {
-      outputDimensionality: OUTPUT_DIMENSIONS,
+  const response = await fetch('https://api.x.ai/v1/embeddings', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
     },
+    body: JSON.stringify({
+      model: EMBEDDING_MODEL,
+      input: text
+    })
   });
 
-  // result.embeddings is an array; we want the first one's values
-  return result.embeddings[0].values;
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`Grok Embeddings API error: ${response.status} - ${errorText}`);
+    throw new Error(`Grok Embeddings API Error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  if (!data.data || !data.data[0] || !data.data[0].embedding) {
+    throw new Error('Grok Embeddings response has invalid format.');
+  }
+
+  return data.data[0].embedding;
 }
 
 // ---------------------------------------------------------------------------
