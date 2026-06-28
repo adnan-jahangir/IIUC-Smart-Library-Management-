@@ -174,7 +174,7 @@ const Login = () => {
 
               <div className="space-y-2">
                  <label className="text-sm font-semibold text-slate-700">
-                    {role === 'student' ? 'University ID' : 'Email Prefix'}
+                    {role === 'student' ? 'University ID / Email' : 'Email Prefix / Full Email'}
                  </label>
                  <div className="relative flex">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10">
@@ -185,12 +185,16 @@ const Login = () => {
                       type="text" 
                       value={email} 
                       onChange={(e) => setEmail(e.target.value)} 
-                      placeholder={role === 'student' ? 'C233114' : 'sabbir'} 
-                      className={`w-full pl-11 pr-2 py-3.5 bg-slate-50 border border-slate-200 border-r-0 rounded-l-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all text-sm sm:text-base text-slate-800 font-medium ${role === 'student' ? 'uppercase' : ''}`} 
+                      placeholder={role === 'student' ? 'C233114' : 'sabbir@iiuc.ac.bd'} 
+                      className={`w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all text-sm sm:text-base text-slate-800 font-medium ${
+                        email.includes('@') ? 'rounded-xl border-r' : 'rounded-l-xl border-r-0'
+                      } ${role === 'student' && !email.includes('@') ? 'uppercase' : ''}`} 
                     />
-                    <div className="px-3 sm:px-4 py-3.5 bg-slate-100 border border-slate-200 rounded-r-xl text-slate-500 font-medium text-xs sm:text-sm flex items-center shrink-0">
-                      {role === 'student' ? '@ugrad.iiuc.ac.bd' : '@iiuc.ac.bd'}
-                    </div>
+                    {!email.includes('@') && (
+                      <div className="px-3 sm:px-4 py-3.5 bg-slate-100 border border-slate-200 rounded-r-xl text-slate-500 font-medium text-xs sm:text-sm flex items-center shrink-0">
+                        {role === 'student' ? '@ugrad.iiuc.ac.bd' : '@iiuc.ac.bd'}
+                      </div>
+                    )}
                  </div>
               </div>
 
