@@ -1,19 +1,19 @@
 const Book = require('../models/Book');
 const AiUsageLog = require('../models/AiUsageLog');
 
-const XAI_API_URL = 'https://api.x.ai/v1/responses';
-const DEFAULT_MODEL = 'grok-4.3';
-const MODELS_FALLBACK = ['grok-4.3'];
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const DEFAULT_MODEL = 'llama-3.3-70b-versatile';
+const MODELS_FALLBACK = ['llama-3.3-70b-versatile'];
 
 async function callGrokResponses(messages, options = {}) {
-  const apiKey = process.env.XAI_API_KEY || process.env.GROK_API_KEY || '';
+  const apiKey = process.env.GROQ_API_KEY || '';
   if (!apiKey) {
-    throw new Error('Missing XAI_API_KEY. Add it to your backend .env file.');
+    throw new Error('Missing GROQ_API_KEY. Add it to your backend .env file.');
   }
 
   const payload = {
     model: options.model || DEFAULT_MODEL,
-    input: messages,
+    messages: messages,
     temperature: options.temperature ?? 0.7,
   };
 
@@ -21,7 +21,7 @@ async function callGrokResponses(messages, options = {}) {
     payload.response_format = options.response_format;
   }
 
-  const response = await fetch(XAI_API_URL, {
+  const response = await fetch(GROQ_API_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -32,19 +32,14 @@ async function callGrokResponses(messages, options = {}) {
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`Grok API error: ${response.status} - ${errorText}`);
-    const err = new Error(`Grok API Error: ${response.status} - ${errorText}`);
+    console.error(`Groq API error: ${response.status} - ${errorText}`);
+    const err = new Error(`Groq API Error: ${response.status} - ${errorText}`);
     err.status = response.status;
     throw err;
   }
 
   const data = await response.json();
-  const assistantOutput = data.output?.find(item => item.role === 'assistant');
-  const reply = assistantOutput?.content
-    ?.filter(c => c.type === 'output_text')
-    ?.map(c => c.text)
-    ?.join('') || '';
-
+  const reply = data.choices?.[0]?.message?.content || '';
   const usage = data.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
 
   return { reply, usage };

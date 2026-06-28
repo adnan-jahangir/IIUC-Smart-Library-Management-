@@ -1,6 +1,5 @@
-const { getClient } = require('./openaiService');
-
-const EMBEDDING_MODEL = 'grok-embedding-small';
+// Local deterministic normalized word-hashing vectorizer (768 dimensions)
+const EMBEDDING_MODEL = 'local-word-hash-768';
 const OUTPUT_DIMENSIONS = 768;
 
 // ---------------------------------------------------------------------------
@@ -57,32 +56,31 @@ function chunkText(text, chunkSizeWords = 400, overlapWords = 50) {
  * @returns {Promise<number[]>} Embedding vector (768 dimensions)
  */
 async function generateEmbedding(text) {
-  const { apiKey } = await getClient();
-
-  const response = await fetch('https://api.x.ai/v1/embeddings', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: EMBEDDING_MODEL,
-      input: text
-    })
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`Grok Embeddings API error: ${response.status} - ${errorText}`);
-    throw new Error(`Grok Embeddings API Error: ${response.status} - ${errorText}`);
+  const vector = new Array(768).fill(0);
+  const clean = String(text || '').toLowerCase().replace(/[^a-z0-9\s]/g, '');
+  const words = clean.split(/\s+/).filter(Boolean);
+  
+  for (const word of words) {
+    let hash = 0;
+    for (let i = 0; i < word.length; i++) {
+      hash = (hash << 5) - hash + word.charCodeAt(i);
+      hash |= 0; // Convert to 32bit integer
+    }
+    const index = Math.abs(hash) % 768;
+    vector[index] += 1;
   }
-
-  const data = await response.json();
-  if (!data.data || !data.data[0] || !data.data[0].embedding) {
-    throw new Error('Grok Embeddings response has invalid format.');
+  
+  // Normalize vector to unit length
+  const magnitude = Math.sqrt(vector.reduce((sum, val) => sum + val * val, 0));
+  if (magnitude > 0) {
+    for (let i = 0; i < 768; i++) {
+      vector[i] /= magnitude;
+    }
+  } else {
+    vector[0] = 1.0; // fallback unit vector
   }
-
-  return data.data[0].embedding;
+  
+  return vector;
 }
 
 // ---------------------------------------------------------------------------

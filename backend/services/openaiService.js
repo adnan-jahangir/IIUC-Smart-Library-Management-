@@ -1,18 +1,18 @@
-const XAI_API_URL = 'https://api.x.ai/v1/responses';
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 // ---------------------------------------------------------------------------
-// Lazy-initialised Grok client config
+// Lazy-initialised Groq client config
 // ---------------------------------------------------------------------------
 async function getClient() {
-  const apiKey = process.env.XAI_API_KEY || process.env.GROK_API_KEY || '';
+  const apiKey = process.env.GROQ_API_KEY || '';
   if (!apiKey) {
-    throw new Error('Missing XAI_API_KEY. Add it to your backend .env file.');
+    throw new Error('Missing GROQ_API_KEY. Add it to your backend .env file.');
   }
-  return { apiKey, baseUrl: 'https://api.x.ai/v1' };
+  return { apiKey, baseUrl: 'https://api.groq.com/openai/v1' };
 }
 
-const DEFAULT_MODEL = 'grok-4.3';
-const MODELS_FALLBACK = ['grok-4.3'];
+const DEFAULT_MODEL = 'llama-3.3-70b-versatile';
+const MODELS_FALLBACK = ['llama-3.3-70b-versatile'];
 
 // ---------------------------------------------------------------------------
 // Build the library-assistant system prompt (role-aware)
@@ -38,37 +38,14 @@ function buildSystemPrompt(role) {
   ].join('\n');
 }
 
-// Helper to extract text from a Grok response object
-function extractGrokText(data) {
-  const assistantOutput = data?.output?.find(item => item.role === 'assistant');
-  if (!assistantOutput || !Array.isArray(assistantOutput.content)) {
-    return '';
-  }
-  return assistantOutput.content
-    .filter(c => c.type === 'output_text')
-    .map(c => c.text)
-    .join('');
+// Helper to extract text from a Groq response object
+function extractGroqText(data) {
+  return data?.choices?.[0]?.message?.content || '';
 }
 
-// Helper to extract text from a Grok stream chunk
-function extractGrokChunkText(json) {
-  if (!json) return '';
-  if (json.output) {
-    const assistantOutput = json.output.find(item => item.role === 'assistant');
-    if (assistantOutput && Array.isArray(assistantOutput.content)) {
-      return assistantOutput.content
-        .filter(c => c.type === 'output_text')
-        .map(c => c.text)
-        .join('');
-    }
-  }
-  if (json.choices?.[0]?.delta?.content) {
-    return json.choices[0].delta.content;
-  }
-  if (json.delta?.text) {
-    return json.delta.text;
-  }
-  return '';
+// Helper to extract text from a Groq stream chunk
+function extractGroqChunkText(json) {
+  return json?.choices?.[0]?.delta?.content || '';
 }
 
 // ---------------------------------------------------------------------------
@@ -81,7 +58,7 @@ async function getChatCompletion(messages, options = {}) {
 
   const payload = {
     model,
-    input: messages,
+    messages,
     temperature,
   };
 
@@ -89,7 +66,7 @@ async function getChatCompletion(messages, options = {}) {
     payload.response_format = options.response_format;
   }
 
-  const response = await fetch(XAI_API_URL, {
+  const response = await fetch(GROQ_API_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -100,14 +77,14 @@ async function getChatCompletion(messages, options = {}) {
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`Grok API error: ${response.status} - ${errorText}`);
-    const err = new Error(`Grok API Error: ${response.status} - ${errorText}`);
+    console.error(`Groq API error: ${response.status} - ${errorText}`);
+    const err = new Error(`Groq API Error: ${response.status} - ${errorText}`);
     err.status = response.status;
     throw err;
   }
 
   const data = await response.json();
-  const reply = extractGrokText(data);
+  const reply = extractGroqText(data);
   const usage = data.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
   const sources = data.sources || null;
 
@@ -131,12 +108,12 @@ async function getStreamingChatCompletion(messages, res, options = {}) {
 
   const payload = {
     model,
-    input: messages,
+    messages,
     temperature,
     stream: true
   };
 
-  const response = await fetch(XAI_API_URL, {
+  const response = await fetch(GROQ_API_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -147,10 +124,10 @@ async function getStreamingChatCompletion(messages, res, options = {}) {
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`Grok API Streaming error: ${response.status} - ${errorText}`);
-    res.write(`data: ${JSON.stringify({ error: `Grok API Error: ${response.status}` })}\n\n`);
+    console.error(`Groq API Streaming error: ${response.status} - ${errorText}`);
+    res.write(`data: ${JSON.stringify({ error: `Groq API Error: ${response.status}` })}\n\n`);
     res.end();
-    const err = new Error(`Grok Streaming API Error: ${response.status} - ${errorText}`);
+    const err = new Error(`Groq Streaming API Error: ${response.status} - ${errorText}`);
     err.status = response.status;
     throw err;
   }
@@ -180,7 +157,7 @@ async function getStreamingChatCompletion(messages, res, options = {}) {
             usage = json.usage;
           }
 
-          const text = extractGrokChunkText(json);
+          const text = extractGroqChunkText(json);
           if (text) {
             fullReply += text;
             res.write(`data: ${JSON.stringify({ token: text })}\n\n`);
