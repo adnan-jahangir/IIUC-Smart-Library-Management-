@@ -29,6 +29,10 @@ async function runCycle() {
   }).populate('user book');
 
   for (const br of needsRenewal) {
+    if (!br.user || !br.book) {
+      console.warn(`Jobs: skipping renewal notification for borrow record ${br._id} because user or book is missing/deleted`);
+      continue;
+    }
     const remaining = (br.maxRenewals || 2) - (br.renewalCount || 0);
     if (remaining > 0) {
       await Notification.create({
@@ -49,6 +53,10 @@ async function runCycle() {
   }).populate('user book');
 
   for (const br of overdue) {
+    if (!br.user || !br.book) {
+      console.warn(`Jobs: skipping fine accrual for borrow record ${br._id} because user or book is missing/deleted`);
+      continue;
+    }
     // calculate number of whole days overdue
     const daysOverdue = floorDaysBetween(br.dueDate, now);
 
