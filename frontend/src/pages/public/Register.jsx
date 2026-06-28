@@ -162,7 +162,7 @@ const Register = () => {
               <div className="space-y-3">
                  <label className="text-xs sm:text-sm font-semibold text-slate-700">Role</label>
                  <div className="rounded-2xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-2 shadow-sm">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={() => selectRole('Student')}
@@ -182,17 +182,6 @@ const Register = () => {
                         <div className="flex items-center gap-2">
                           <UserRoundCheck className="w-4 h-4" />
                           <span className="text-xs sm:text-sm font-semibold">Teacher</span>
-                        </div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => selectRole('Librarian')}
-                        className={`rounded-xl px-3 py-3 text-left transition-all border ${formData.role === 'Librarian' ? 'bg-purple-50 border-purple-300 text-purple-800 shadow-sm' : 'bg-white border-slate-200 text-slate-700 hover:border-purple-200 hover:bg-purple-50/40'}`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <User className="w-4 h-4" />
-                          <span className="text-xs sm:text-sm font-semibold">Librarian</span>
                         </div>
                       </button>
                     </div>

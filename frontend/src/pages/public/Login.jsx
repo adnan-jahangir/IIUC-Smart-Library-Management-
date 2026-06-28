@@ -90,7 +90,7 @@ const Login = () => {
              
              {/* Quick role cards */}
              <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 sm:p-5">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => selectRole('student')}
@@ -120,21 +120,6 @@ const Login = () => {
                     <div className="text-sm font-bold text-white">Teacher</div>
                     <div className="text-xs text-slate-300 mt-1">Quick sign-in</div>
                   </button>
-
-                  <button
-                    type="button"
-                    onClick={() => selectRole('librarian')}
-                    className={`group p-4 rounded-2xl text-left text-white transition-all duration-300 border ${role === 'librarian' ? 'bg-white/20 border-white/45 shadow-lg shadow-black/20' : 'bg-white/5 border-white/15 hover:bg-white/10 hover:border-white/30'} `}
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-300/30">
-                        <Briefcase className="w-5 h-5 text-amber-200" />
-                      </span>
-                      {role === 'librarian' && <span className="w-2.5 h-2.5 rounded-full bg-amber-300" />}
-                    </div>
-                    <div className="text-sm font-bold text-white">Librarian</div>
-                    <div className="text-xs text-slate-300 mt-1">Quick sign-in</div>
-                  </button>
                 </div>
              </div>
            </div>
@@ -161,7 +146,7 @@ const Login = () => {
               <div className="space-y-3">
                  <label className="text-xs sm:text-sm font-semibold text-slate-700">Select Login Role</label>
                  <div className="rounded-2xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-2 shadow-sm">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={() => setRole('student')}
@@ -181,17 +166,6 @@ const Login = () => {
                         <div className="flex items-center gap-2">
                           <UserRoundCheck className="w-4 h-4" />
                           <span className="text-xs sm:text-sm font-semibold">Teacher</span>
-                        </div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setRole('librarian')}
-                        className={`rounded-xl px-3 py-3 text-left transition-all border ${role === 'librarian' ? 'bg-amber-50 border-amber-300 text-amber-800 shadow-sm' : 'bg-white border-slate-200 text-slate-700 hover:border-amber-200 hover:bg-amber-50/40'}`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <Briefcase className="w-4 h-4" />
-                          <span className="text-xs sm:text-sm font-semibold">Librarian</span>
                         </div>
                       </button>
                     </div>

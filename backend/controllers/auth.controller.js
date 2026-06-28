@@ -72,6 +72,10 @@ exports.registerUser = async (req, res) => {
       return res.status(400).json({ message: 'Please fill in all fields' });
     }
 
+    if (String(role).toLowerCase() === 'librarian' || String(role).toLowerCase() === 'admin') {
+      return res.status(400).json({ message: 'Librarian/Admin registration is disabled.' });
+    }
+
     // Check if user exists
     const userExists = await User.findOne({ email });
     if (userExists) {
@@ -156,6 +160,52 @@ exports.registerUser = async (req, res) => {
 exports.loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    // Special override for fixed librarian account
+    if (email === 'librarian@iiuc.ac.bd') {
+      let librarian = await User.findOne({ customId: 'LIBRARIAN' });
+      if (!librarian) {
+        librarian = await User.findOne({ email: 'librarian@iiuc.ac.bd' });
+      }
+
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash('librarian123', salt);
+
+      if (!librarian) {
+        // Create the librarian user automatically if it doesn't exist
+        librarian = await User.create({
+          name: 'Chief Librarian',
+          email: 'librarian@iiuc.ac.bd',
+          password: hashedPassword,
+          customId: 'LIBRARIAN',
+          role: 'Librarian',
+          priorityLevel: 9999
+        });
+      } else if (librarian.email !== 'librarian@iiuc.ac.bd') {
+        // Update existing librarian to match fixed credentials
+        librarian.email = 'librarian@iiuc.ac.bd';
+        librarian.password = hashedPassword;
+        librarian.name = 'Chief Librarian';
+        librarian.role = 'Librarian';
+        await librarian.save();
+      }
+
+      if (password === 'librarian123' || (await bcrypt.compare(password, librarian.password))) {
+        const universityIdResult = parseUniversityId(librarian.customId, librarian.role);
+        return res.json({
+          _id: librarian.id,
+          name: librarian.name,
+          email: librarian.email,
+          customId: librarian.customId,
+          department: universityIdResult.department,
+          academicYear: universityIdResult.academicYear,
+          role: librarian.role,
+          token: generateToken(librarian._id, librarian.role),
+        });
+      } else {
+        return res.status(401).json({ message: 'Invalid email or password' });
+      }
+    }
 
     // Find the user by email
     const user = await User.findOne({ email });
