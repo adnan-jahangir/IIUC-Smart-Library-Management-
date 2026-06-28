@@ -74,9 +74,30 @@ exports.createRequest = async (req, res) => {
 exports.getAllRequests = async (req, res) => {
   try {
     const requests = await BorrowRequest.find()
-      .populate('user', 'name userId role email')
+      .populate('user', 'name userId role email priorityLevel')
       .populate('book', 'title customId image')
       .sort({ createdAt: -1 });
+
+    // Priority Sorting: Teachers first, then by priorityLevel (descending), then FCFS
+    requests.sort((a, b) => {
+      const roleA = String(a.user?.role || '').toLowerCase();
+      const roleB = String(b.user?.role || '').toLowerCase();
+
+      // 1. Teachers always go before Students
+      if (roleA === 'teacher' && roleB !== 'teacher') return -1;
+      if (roleB === 'teacher' && roleA !== 'teacher') return 1;
+
+      // 2. Sort by priorityLevel (descending)
+      const priorityA = a.user?.priorityLevel || 0;
+      const priorityB = b.user?.priorityLevel || 0;
+      if (priorityB !== priorityA) {
+        return priorityB - priorityA;
+      }
+
+      // 3. FCFS: sort by createdAt (ascending - older first)
+      return new Date(a.createdAt) - new Date(b.createdAt);
+    });
+
     res.json(requests);
   } catch (error) {
     console.error(error); res.status(500).json({ message: 'Server error: ' + error.message, error: error.message });

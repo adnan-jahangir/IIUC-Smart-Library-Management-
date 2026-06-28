@@ -96,16 +96,17 @@ exports.registerUser = async (req, res) => {
 
     // Calculate priority level
     let priorityLevel = 0;
-    if (role === 'Teacher') {
+    if (String(role).toLowerCase() === 'teacher') {
       const designationWeights = {
-        'Professor': 1005,
-        'Associate Professor': 1004,
-        'Assistant Professor': 1003,
-        'Lecturer': 1002,
-        'Adjunct Lecturer': 1001
+        'professor': 1005,
+        'associate professor': 1004,
+        'assistant professor': 1003,
+        'lecturer': 1002,
+        'adjunct lecturer': 1001
       };
-      priorityLevel = designationWeights[designation] || 1000;
-    } else if (role === 'Student' && universityIdResult.prefix) {
+      const normDesignation = String(designation || '').trim().toLowerCase();
+      priorityLevel = designationWeights[normDesignation] || 1000;
+    } else if (String(role).toLowerCase() === 'student' && universityIdResult.prefix) {
       const idAfterPrefix = customId.substring(universityIdResult.prefix.length);
       const batchCodeMatch = idAfterPrefix.match(/^\d{3}/);
       if (batchCodeMatch) {
