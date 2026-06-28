@@ -29,6 +29,20 @@ const StudentBorrowRequests = () => {
     }
   }, [user]);
 
+  const handleCancelRequest = async (requestId) => {
+    if (!window.confirm('Are you sure you want to cancel this borrow request?')) return;
+    try {
+      await axios.delete(`http://localhost:5000/api/requests/${requestId}`, {
+        headers: { Authorization: `Bearer ${user.token}` }
+      });
+      toast.success('Borrow request canceled successfully.');
+      setRequests(prev => prev.filter(r => r._id !== requestId));
+    } catch (error) {
+      console.error('Failed to cancel request:', error);
+      toast.error(error.response?.data?.message || 'Failed to cancel request.');
+    }
+  };
+
   const getStatusIcon = (status) => {
     switch (status) {
       case 'Pending': return <Clock className="w-5 h-5 text-amber-500" />;
@@ -95,6 +109,15 @@ const StudentBorrowRequests = () => {
                   ID: {request.book?.customId}
                 </p>
               </div>
+
+              {request.status === 'Pending' && (
+                <button
+                  onClick={() => handleCancelRequest(request._id)}
+                  className="mt-4 w-full py-2 bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100/50 rounded-xl text-xs font-bold transition-colors animate-pulse hover:animate-none"
+                >
+                  Cancel Request
+                </button>
+              )}
 
               {request.status === 'Rejected' && request.rejectionReason && (
                 <div className="mt-4 p-3 bg-rose-50 rounded-xl text-sm text-rose-700 border border-rose-100">

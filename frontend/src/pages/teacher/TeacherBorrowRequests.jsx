@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { Loader2, Filter, Clock } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
+import toast from 'react-hot-toast';
 
 const TeacherBorrowRequests = () => {
   const { user } = useAuthStore();
@@ -25,6 +26,20 @@ const TeacherBorrowRequests = () => {
 
     if (user?.token) fetchRequests();
   }, [user]);
+
+  const handleCancelRequest = async (requestId) => {
+    if (!window.confirm('Are you sure you want to cancel this borrow request?')) return;
+    try {
+      await axios.delete(`http://localhost:5000/api/requests/${requestId}`, {
+        headers: { Authorization: `Bearer ${user.token}` }
+      });
+      toast.success('Borrow request canceled successfully.');
+      setRequests(prev => prev.filter(r => r._id !== requestId));
+    } catch (error) {
+      console.error('Failed to cancel request:', error);
+      toast.error(error.response?.data?.message || 'Failed to cancel request.');
+    }
+  };
 
   const filtered = useMemo(() => {
     if (filter === 'All') return requests;
@@ -68,6 +83,14 @@ const TeacherBorrowRequests = () => {
                 <div className="flex items-center gap-2"><Clock className="w-4 h-4 text-slate-400" /> Requested: {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : '—'}</div>
                 <div className="font-mono text-xs text-slate-400">ID: {request.book?.customId}</div>
               </div>
+              {request.status === 'Pending' && (
+                <button
+                  onClick={() => handleCancelRequest(request._id)}
+                  className="mt-4 w-full py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-bold transition-all border border-rose-100 animate-pulse hover:animate-none"
+                >
+                  Cancel Request
+                </button>
+              )}
             </div>
           ))}
         </div>

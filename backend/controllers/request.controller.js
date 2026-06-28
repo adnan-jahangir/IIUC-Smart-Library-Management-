@@ -225,3 +225,31 @@ exports.renewRequest = async (req, res) => {
     console.error(error); res.status(500).json({ message: 'Server error: ' + error.message, error: error.message });
   }
 };
+
+// @desc    Cancel a borrow request (Student, Teacher)
+// @route   DELETE /api/requests/:id
+// @access  Private (Student, Teacher)
+exports.cancelRequest = async (req, res) => {
+  try {
+    const request = await BorrowRequest.findById(req.params.id);
+    if (!request) return res.status(404).json({ message: 'Request not found' });
+
+    // Validate ownership: only the user who created it can cancel it
+    if (String(request.user) !== String(req.user.id)) {
+      return res.status(403).json({ message: 'Not authorized to cancel this request' });
+    }
+
+    // Only pending requests can be canceled
+    if (request.status !== 'Pending') {
+      return res.status(400).json({ message: `Cannot cancel a request that is already ${request.status.toLowerCase()}` });
+    }
+
+    // Delete the pending request document
+    await BorrowRequest.findByIdAndDelete(req.params.id);
+
+    res.json({ message: 'Borrow request canceled successfully.' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error: ' + error.message, error: error.message });
+  }
+};
