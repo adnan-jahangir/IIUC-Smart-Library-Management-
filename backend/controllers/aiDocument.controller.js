@@ -291,44 +291,54 @@ exports.generateQuestions = async (req, res) => {
     const type = ['mcq', 'short', 'long'].includes(questionType) ? questionType : 'mcq';
     const targetCount = Math.min(Math.max(parseInt(count) || 5, 1), 15);
 
-    // Limit text context for question generation to avoid token overflow
-    const docSnippet = doc.extractedText.slice(0, 15000);
+    // Limit text context — Groq llama-3.3-70b has ~128k token context but rate limits are strict
+    // Keep prompt small to ensure reliable generation
+    const docSnippet = doc.extractedText.slice(0, 8000);
 
-    const promptMessages = [
+    const buildPrompt = (snippet) => ([
       {
         role: 'system',
         content: `You are an AI exam and quiz generation assistant. 
 Based ONLY on the provided document content, generate exactly ${targetCount} questions of type: "${type}".
 Include answers and explanations.
 
-Format the output strictly as a valid JSON array. Do not wrap in Markdown fences, code blocks, or include any preamble. Output ONLY the JSON array matching this schema:
+IMPORTANT: Output ONLY a valid JSON array. No markdown, no code fences, no preamble. Match this schema exactly:
 [
   {
-    "question": "string (the question text)",
-    "options": ["Option A", "Option B", "Option C", "Option D"], // ONLY include options field if type is 'mcq', must have exactly 4 choices
-    "correctAnswer": "string (the correct answer. For MCQ, must match one of the options exactly. For short/long, provides a comprehensive correct answer model)",
-    "explanation": "string (a detailed explanation referencing why the answer is correct based on the text)"
+    "question": "string",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correctAnswer": "string",
+    "explanation": "string"
   }
-]`
+]
+For 'short' or 'long' type, omit the "options" field entirely.`
       },
       {
         role: 'user',
-        content: `Document Content:
-${docSnippet}
-
-Generate exactly ${targetCount} ${type.toUpperCase()} questions now.`
+        content: `Document Content:\n${snippet}\n\nGenerate exactly ${targetCount} ${type.toUpperCase()} questions now.`
       }
-    ];
+    ]);
 
     let replyText = '';
     let tokensUsed = 0;
+
+    // First attempt with full snippet
     try {
-      const { reply, usage } = await getChatCompletion(promptMessages, { temperature: 0.4, maxTokens: 4096 });
+      const { reply, usage } = await getChatCompletion(buildPrompt(docSnippet), { temperature: 0.4, maxTokens: 4096 });
       replyText = reply;
       tokensUsed = usage?.total_tokens || 0;
     } catch (err) {
-      console.error('OpenAI question generation error:', err.message);
-      return res.status(502).json({ message: 'AI question generation failed. Please try again later.' });
+      console.error('Groq question generation error (attempt 1):', err.message);
+      // Retry with smaller context (4000 chars) if first attempt fails
+      try {
+        const smallerSnippet = doc.extractedText.slice(0, 4000);
+        const { reply, usage } = await getChatCompletion(buildPrompt(smallerSnippet), { temperature: 0.4, maxTokens: 2048 });
+        replyText = reply;
+        tokensUsed = usage?.total_tokens || 0;
+      } catch (retryErr) {
+        console.error('Groq question generation error (attempt 2):', retryErr.message);
+        return res.status(502).json({ message: 'AI question generation failed. Please try again later.' });
+      }
     }
 
     let parsed = [];

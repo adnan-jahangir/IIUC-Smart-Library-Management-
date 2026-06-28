@@ -60,6 +60,7 @@ async function getChatCompletion(messages, options = {}) {
     model,
     messages,
     temperature,
+    max_tokens: options.maxTokens || 4096,
   };
 
   if (options.response_format?.type === 'json_object') {
