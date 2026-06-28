@@ -90,6 +90,86 @@ async function startServer(customUri) {
   try {
     await mongoose.connect(uri);
     console.log('Connected to MongoDB');
+
+    // --- Startup Database Priority Repair ---
+    try {
+      const User = require('./models/User');
+      const Reservation = require('./models/Reservation');
+
+      const calculateUserPriority = (role, customId, designation) => {
+        const normalizedRole = String(role || '').trim().toLowerCase();
+        if (normalizedRole === 'teacher') {
+          const designationWeights = {
+            'professor': 1005,
+            'associate professor': 1004,
+            'assistant professor': 1003,
+            'lecturer': 1002,
+            'adjunct lecturer': 1001
+          };
+          const normDesignation = String(designation || '').trim().toLowerCase();
+          return designationWeights[normDesignation] || 1000;
+        }
+        if (normalizedRole === 'student') {
+          const prefixes = ['C', 'E', 'T', 'CE', 'EL', 'L', 'B', 'P'];
+          const id = String(customId || '').trim().toUpperCase();
+          const matchedPrefix = prefixes
+            .sort((a, b) => b.length - a.length)
+            .find(prefix => id.startsWith(prefix));
+          if (matchedPrefix) {
+            const idAfterPrefix = id.substring(matchedPrefix.length);
+            const batchCodeMatch = idAfterPrefix.match(/^\d{3}/);
+            if (batchCodeMatch) {
+              const batchCode = parseInt(batchCodeMatch[0], 10);
+              return 1000 - batchCode;
+            }
+          }
+        }
+        return 0;
+      };
+
+      const usersToRepair = await User.find({
+        $or: [
+          { priorityLevel: 0 },
+          { priorityLevel: { $exists: false } }
+        ]
+      });
+
+      let updatedCount = 0;
+      for (const u of usersToRepair) {
+        const normRole = String(u.role || '').toLowerCase();
+        if (normRole !== 'student' && normRole !== 'teacher') continue;
+        const calc = calculateUserPriority(u.role, u.customId, u.designation);
+        if (calc > 0) {
+          u.priorityLevel = calc;
+          await u.save();
+          updatedCount++;
+        }
+      }
+      if (updatedCount > 0) {
+        console.log(`[Database Repair] Successfully repaired priorityLevel for ${updatedCount} users.`);
+      }
+
+      // Also repair active reservations priority values to align with fixed user priorities
+      const reservationsToRepair = await Reservation.find({
+        status: 'Waiting'
+      }).populate('user');
+
+      let repairedReservationsCount = 0;
+      for (const resv of reservationsToRepair) {
+        if (resv.user && resv.user.priorityLevel > 0 && resv.priorityLevel !== resv.user.priorityLevel) {
+          resv.priorityLevel = resv.user.priorityLevel;
+          await resv.save();
+          repairedReservationsCount++;
+        }
+      }
+      if (repairedReservationsCount > 0) {
+        console.log(`[Database Repair] Successfully repaired priorityLevel for ${repairedReservationsCount} active reservations.`);
+      }
+    } catch (repairErr) {
+      console.error('[Database Repair] Priority level repair error:', repairErr);
+    }
+    // ----------------------------------------
+
   } catch (err) {
     console.error('Failed to connect to MongoDB', err);
   }

@@ -61,10 +61,44 @@ exports.createReservation = async (req, res) => {
       return res.status(400).json({ message: 'You already have an active reservation for this book.' });
     }
 
+    // Helper to calculate priority level on-the-fly
+    const calculateUserPriority = (role, customId, designation) => {
+      const normalizedRole = String(role || '').trim().toLowerCase();
+      if (normalizedRole === 'teacher') {
+        const designationWeights = {
+          'professor': 1005,
+          'associate professor': 1004,
+          'assistant professor': 1003,
+          'lecturer': 1002,
+          'adjunct lecturer': 1001
+        };
+        const normDesignation = String(designation || '').trim().toLowerCase();
+        return designationWeights[normDesignation] || 1000;
+      }
+      if (normalizedRole === 'student') {
+        const prefixes = ['C', 'E', 'T', 'CE', 'EL', 'L', 'B', 'P'];
+        const id = String(customId || '').trim().toUpperCase();
+        const matchedPrefix = prefixes
+          .sort((a, b) => b.length - a.length)
+          .find(prefix => id.startsWith(prefix));
+        if (matchedPrefix) {
+          const idAfterPrefix = id.substring(matchedPrefix.length);
+          const batchCodeMatch = idAfterPrefix.match(/^\d{3}/);
+          if (batchCodeMatch) {
+            const batchCode = parseInt(batchCodeMatch[0], 10);
+            return 1000 - batchCode;
+          }
+        }
+      }
+      return 0;
+    };
+
+    const effectivePriority = user.priorityLevel || calculateUserPriority(user.role, user.customId, user.designation) || 0;
+
     const reservation = await Reservation.create({
       user: userId,
       book: book._id,
-      priorityLevel: user.priorityLevel || 0,
+      priorityLevel: effectivePriority,
       queuePosition: 999999 // Placeholder, will be recalculated immediately
     });
 
