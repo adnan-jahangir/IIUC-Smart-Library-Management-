@@ -95,12 +95,30 @@ router.get('/librarian', protect, restrictTo('Librarian', 'Admin'), async (req, 
             dueDate: { $lt: new Date() } 
         });
 
-        // Pending requests for the table
-        const pendingRequests = await BorrowRequest.find({ status: 'Pending' })
+        // Pending requests for the table — sorted by priority (Teachers > Students, then by designation/batch, then FCFS)
+        const pendingRequestsRaw = await BorrowRequest.find({ status: 'Pending' })
             .populate('book', 'title customId')
-            .populate('user', 'customId name')
-            .sort({ createdAt: -1 })
-            .limit(10);
+            .populate('user', 'customId name role priorityLevel designation');
+
+        // Sort: Teachers first (by designation priority), then Students (by batch priority), then FCFS
+        pendingRequestsRaw.sort((a, b) => {
+            const roleA = String(a.user?.role || '').toLowerCase();
+            const roleB = String(b.user?.role || '').toLowerCase();
+
+            // 1. Teachers always above Students
+            if (roleA === 'teacher' && roleB !== 'teacher') return -1;
+            if (roleB === 'teacher' && roleA !== 'teacher') return 1;
+
+            // 2. Sort by priorityLevel descending (teachers sorted by designation, students by batch)
+            const priorityA = a.user?.priorityLevel || 0;
+            const priorityB = b.user?.priorityLevel || 0;
+            if (priorityB !== priorityA) return priorityB - priorityA;
+
+            // 3. FCFS — older request first
+            return new Date(a.createdAt) - new Date(b.createdAt);
+        });
+
+        const pendingRequests = pendingRequestsRaw.slice(0, 10);
 
         res.json({
             issuedToday,
@@ -110,6 +128,9 @@ router.get('/librarian', protect, restrictTo('Librarian', 'Admin'), async (req, 
             pendingRequests: pendingRequests.map(pr => ({
                 id: pr._id,
                 studentId: pr.user?.customId || 'Unknown',
+                name: pr.user?.name || 'Unknown',
+                role: pr.user?.role || 'Student',
+                designation: pr.user?.designation || '',
                 title: pr.book?.title || 'Unknown',
                 date: pr.createdAt,
                 status: pr.status

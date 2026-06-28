@@ -463,7 +463,7 @@ const LibrarianDashboard = () => {
             <table className="w-full text-left text-sm text-slate-600">
               <thead className="bg-slate-50 text-slate-500 font-medium">
                 <tr>
-                  <th className="py-3 px-4 rounded-tl-lg">Student ID</th>
+                  <th className="py-3 px-4 rounded-tl-lg">User</th>
                   <th className="py-3 px-4">Book Title</th>
                   <th className="py-3 px-4">Request Date</th>
                   <th className="py-3 px-4 rounded-tr-lg text-right">Actions</th>
@@ -472,7 +472,17 @@ const LibrarianDashboard = () => {
               <tbody className="divide-y divide-slate-100/50">
                 {pendingRequests.map((req) => (
                   <tr key={req.id} className="hover:bg-slate-50">
-                    <td className="py-4 px-4 font-semibold text-slate-800">{req.studentId}</td>
+                    <td className="py-4 px-4">
+                      <p className="font-semibold text-slate-800">{req.name || req.studentId}</p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                          req.role === 'Teacher' ? 'bg-violet-100 text-violet-700' : 'bg-sky-100 text-sky-700'
+                        }`}>
+                          {req.role === 'Teacher' ? (req.designation || 'Teacher') : 'Student'}
+                        </span>
+                        <span className="text-xs text-slate-400">{req.studentId}</span>
+                      </div>
+                    </td>
                     <td className="py-4 px-4">{req.title}</td>
                     <td className="py-4 px-4 text-xs font-semibold">{new Date(req.date).toLocaleString()}</td>
                     <td className="py-4 px-4 text-right">
