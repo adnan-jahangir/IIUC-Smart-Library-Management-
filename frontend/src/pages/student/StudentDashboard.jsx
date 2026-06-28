@@ -130,7 +130,7 @@ const DashboardAIAssistant = ({ user, currentBooks, chatBooks }) => {
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
             <span className="bg-emerald-500/30 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 w-fit">
-              <Sparkles className="w-3.5 h-3.5" /> Powered by Gemini AI
+              <Sparkles className="w-3.5 h-3.5" /> Powered by Grok AI
             </span>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">AI Study Planner & Prep Guide</h1>
             <p className="text-emerald-100 max-w-2xl text-sm md:text-base font-medium">

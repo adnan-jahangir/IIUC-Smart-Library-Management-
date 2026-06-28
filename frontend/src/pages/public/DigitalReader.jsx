@@ -251,7 +251,7 @@ const DigitalReader = () => {
           <div className="px-6 py-3 bg-gradient-to-r from-emerald-950/20 to-slate-900 border-b border-slate-850 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-emerald-400" />
-              <span className="text-xs font-bold text-slate-200">Gemini AI Book Insight</span>
+              <span className="text-xs font-bold text-slate-200">Grok AI Book Insight</span>
             </div>
             {isInsightLoading ? (
               <span className="text-[10px] text-slate-500 flex items-center gap-1 font-semibold">
