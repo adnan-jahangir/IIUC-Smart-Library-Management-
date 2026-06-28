@@ -52,6 +52,20 @@ const TeacherMyBooks = () => {
     }
   };
 
+  const handleCancelRequest = async (requestId) => {
+    if (!window.confirm('Are you sure you want to cancel this borrow request?')) return;
+    try {
+      await axios.delete(`http://localhost:5000/api/requests/${requestId}`, {
+        headers: { Authorization: `Bearer ${user.token}` }
+      });
+      toast.success('Borrow request canceled successfully.');
+      setRequests(prev => prev.filter(r => r._id !== requestId));
+    } catch (error) {
+      console.error('Failed to cancel request:', error);
+      toast.error(error.response?.data?.message || 'Failed to cancel request.');
+    }
+  };
+
   return (
     <>
       <div className="space-y-6">
@@ -109,7 +123,16 @@ const TeacherMyBooks = () => {
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" /> Renew
                     </button>
-                  ) : null}
+                  ) : request.status === 'Pending' ? (
+                    <button
+                      onClick={() => handleCancelRequest(request._id)}
+                      className="text-xs font-bold text-rose-600 hover:text-rose-700 transition-colors"
+                    >
+                      Cancel Request
+                    </button>
+                  ) : (
+                    <span className="text-[10px] text-slate-400 font-medium">No actions</span>
+                  )}
                 </div>
               </div>
             ))}
