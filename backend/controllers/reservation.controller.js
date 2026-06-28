@@ -6,7 +6,27 @@ const recalcQueuePositions = async (bookId) => {
   const waitingReservations = await Reservation.find({
     book: bookId,
     status: 'Waiting'
-  }).sort({ priorityLevel: -1, createdAt: 1 });
+  }).populate('user');
+
+  // Sort waitingReservations: Teachers strictly above Students, then by priority, then by FCFS
+  waitingReservations.sort((a, b) => {
+    const roleA = String(a.user?.role || '').toLowerCase();
+    const roleB = String(b.user?.role || '').toLowerCase();
+
+    // 1. Teachers always go before Students
+    if (roleA === 'teacher' && roleB !== 'teacher') return -1;
+    if (roleB === 'teacher' && roleA !== 'teacher') return 1;
+
+    // 2. Sort by priorityLevel (descending)
+    const priorityA = a.priorityLevel || 0;
+    const priorityB = b.priorityLevel || 0;
+    if (priorityB !== priorityA) {
+      return priorityB - priorityA;
+    }
+
+    // 3. FCFS: sort by createdAt (ascending)
+    return new Date(a.createdAt) - new Date(b.createdAt);
+  });
 
   for (let index = 0; index < waitingReservations.length; index += 1) {
     const reservation = waitingReservations[index];
@@ -18,6 +38,8 @@ const recalcQueuePositions = async (bookId) => {
     }
   }
 };
+
+exports.recalcQueuePositions = recalcQueuePositions;
 
 // @desc    Create a reservation
 // @route   POST /api/reservations

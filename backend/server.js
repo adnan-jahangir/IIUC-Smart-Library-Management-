@@ -165,6 +165,16 @@ async function startServer(customUri) {
       if (repairedReservationsCount > 0) {
         console.log(`[Database Repair] Successfully repaired priorityLevel for ${repairedReservationsCount} active reservations.`);
       }
+
+      // Recalculate queue positions for all books that have waiting reservations
+      const { recalcQueuePositions } = require('./controllers/reservation.controller');
+      const uniqueBookIds = [...new Set(reservationsToRepair.map(r => String(r.book)))];
+      for (const bId of uniqueBookIds) {
+        await recalcQueuePositions(bId);
+      }
+      if (uniqueBookIds.length > 0) {
+        console.log(`[Database Repair] Successfully recalculated queue positions for ${uniqueBookIds.length} books.`);
+      }
     } catch (repairErr) {
       console.error('[Database Repair] Priority level repair error:', repairErr);
     }
