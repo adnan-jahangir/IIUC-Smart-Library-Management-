@@ -101,7 +101,9 @@ async function getChatCompletion(messages, options = {}) {
   if (!response.ok) {
     const errorText = await response.text();
     console.error(`Grok API error: ${response.status} - ${errorText}`);
-    throw new Error(`Grok API Error: ${response.status} - ${errorText}`);
+    const err = new Error(`Grok API Error: ${response.status} - ${errorText}`);
+    err.status = response.status;
+    throw err;
   }
 
   const data = await response.json();
@@ -148,7 +150,9 @@ async function getStreamingChatCompletion(messages, res, options = {}) {
     console.error(`Grok API Streaming error: ${response.status} - ${errorText}`);
     res.write(`data: ${JSON.stringify({ error: `Grok API Error: ${response.status}` })}\n\n`);
     res.end();
-    throw new Error(`Grok Streaming API Error: ${response.status} - ${errorText}`);
+    const err = new Error(`Grok Streaming API Error: ${response.status} - ${errorText}`);
+    err.status = response.status;
+    throw err;
   }
 
   const decoder = new TextDecoder();

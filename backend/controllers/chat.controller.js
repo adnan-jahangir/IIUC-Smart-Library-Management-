@@ -188,13 +188,15 @@ exports.sendMessage = async (req, res) => {
         complexity
       });
     } catch (aiErr) {
-      console.error('Gemini chat error:', aiErr.message);
+      console.error('Grok chat error:', aiErr.message);
 
       let friendlyMessage = 'Sorry, I encountered an error while generating a response. Please try again.';
       if (aiErr.status === 429) {
         friendlyMessage = 'The AI service is temporarily overloaded or you exceeded your quota. Please try again in a moment.';
       } else if (aiErr.status === 401) {
         friendlyMessage = 'Invalid API key. Please check your .env configuration.';
+      } else if (aiErr.status === 403) {
+        friendlyMessage = 'Your x.ai team has no credits or licenses yet. Please add credits in your x.ai console.';
       }
 
       return res.status(502).json({

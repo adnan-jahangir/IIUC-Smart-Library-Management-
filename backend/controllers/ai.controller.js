@@ -33,7 +33,9 @@ async function callGrokResponses(messages, options = {}) {
   if (!response.ok) {
     const errorText = await response.text();
     console.error(`Grok API error: ${response.status} - ${errorText}`);
-    throw new Error(`Grok API Error: ${response.status} - ${errorText}`);
+    const err = new Error(`Grok API Error: ${response.status} - ${errorText}`);
+    err.status = response.status;
+    throw err;
   }
 
   const data = await response.json();
@@ -131,8 +133,7 @@ async function sendChatToGemini(conversationHistory, userMessage, availableBooks
   } catch (error) {
     console.error('Chat Grok request failed:', error.message);
     const err = new Error(error.message);
-    if (error.message.toLowerCase().includes('api key')) err.status = 401;
-    if (error.message.toLowerCase().includes('quota')) err.status = 429;
+    err.status = error.status || 500;
     throw err;
   }
 }
@@ -392,8 +393,7 @@ exports.summarize = async (req, res) => {
     } catch (error) {
       console.error('Summarize Grok request failed:', error.message);
       const err = new Error(error.message);
-      if (error.message.toLowerCase().includes('api key')) err.status = 401;
-      if (error.message.toLowerCase().includes('quota')) err.status = 429;
+      err.status = error.status || 500;
       throw err;
     }
   } catch (error) {
